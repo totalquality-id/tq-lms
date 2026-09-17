@@ -126,7 +126,7 @@ export async function ManageParticipants({ id }: { id: string }) {
                   <Td>
                     {enrollment.certificate &&
                     enrollment.certificate.status !== "DRAFT" ? (
-                      <span className="tabular text-xs text-ink-700">
+                      <span className="tabular text-xs whitespace-nowrap text-ink-700">
                         {enrollment.certificate.number}
                       </span>
                     ) : (

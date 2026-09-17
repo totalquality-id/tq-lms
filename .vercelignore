@@ -1,0 +1,16 @@
+# Berkas rahasia tidak pernah ikut terunggah ke build Vercel. Nilai untuk
+# produksi berasal dari Environment Variables milik proyek, bukan dari berkas
+# di mesin pengembang — dan .env lokal menunjuk ke database localhost.
+.env
+.env.*
+.vercel-token
+
+node_modules
+.next
+.vercel
+tsconfig.tsbuildinfo
+playwright-report
+test-results
+tests
+docs
+scripts

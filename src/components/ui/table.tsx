@@ -20,7 +20,7 @@ export function Th({ className, ...props }: ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "border-b border-ink-200 bg-ink-50 px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-ink-600 uppercase whitespace-nowrap",
+        "border-b border-ink-200 bg-ink-25 px-5 py-3 text-left text-[11px] font-semibold tracking-wider text-ink-500 uppercase whitespace-nowrap",
         className,
       )}
       {...props}
@@ -32,7 +32,7 @@ export function Td({ className, ...props }: ComponentProps<"td">) {
   return (
     <td
       className={cn(
-        "border-b border-ink-100 px-4 py-3 align-middle text-ink-700",
+        "border-b border-ink-100 px-5 py-3.5 align-middle text-ink-700",
         className,
       )}
       {...props}
@@ -50,8 +50,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="px-4 py-12 text-center">
-      <p className="text-sm font-medium text-ink-800">{title}</p>
+    <div className="px-5 py-14 text-center">
+      <p className="text-sm font-semibold text-ink-800">{title}</p>
       {description ? (
         <p className="mx-auto mt-1 max-w-md text-sm text-ink-500">
           {description}

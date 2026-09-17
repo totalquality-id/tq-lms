@@ -10,6 +10,11 @@ export type TabItem = { href: string; label: string; badge?: string | number };
 /**
  * Tab berupa tautan, bukan state klien: setiap bagian training punya URL
  * sendiri sehingga dapat dibagikan, di-bookmark, dan dimuat di server.
+ *
+ * Bentuknya kendali tersegmen — tab aktif menjadi kepingan putih di atas alur
+ * abu. Pada latar abu halaman, bentuk ini lebih terbaca daripada garis bawah,
+ * dan tetap tenang karena warnanya hanya putih dan abu.
+ *
  * Tab pertama (indeks halaman) hanya aktif pada kecocokan persis; tab lain
  * memiliki seluruh subtree-nya.
  */
@@ -26,11 +31,11 @@ export function TabNav({
   return (
     <nav
       className={cn(
-        "no-print -mx-4 mb-5 overflow-x-auto border-b border-ink-200 px-4 sm:mx-0 sm:px-0",
+        "no-print mb-5 -mx-1 overflow-x-auto px-1 pb-1",
         className,
       )}
     >
-      <ul className="flex min-w-max gap-1">
+      <ul className="inline-flex min-w-max items-center gap-1 rounded-lg bg-ink-100 p-1">
         {items.map((item) => {
           const active =
             item.href === root
@@ -42,15 +47,22 @@ export function TabNav({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "-mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm transition-colors",
+                  "flex items-center gap-2 rounded-md px-3.5 py-2 text-sm whitespace-nowrap transition-colors",
                   active
-                    ? "border-brand-600 font-semibold text-brand-700"
-                    : "border-transparent text-ink-600 hover:border-ink-300 hover:text-ink-900",
+                    ? "bg-white font-semibold text-ink-900 shadow-[var(--shadow-card)]"
+                    : "font-medium text-ink-500 hover:text-ink-800",
                 )}
               >
                 {item.label}
                 {item.badge !== undefined && item.badge !== 0 ? (
-                  <span className="tabular rounded-full bg-ink-100 px-1.5 text-xs font-medium text-ink-600">
+                  <span
+                    className={cn(
+                      "tabular rounded-full px-1.5 text-[11px] font-semibold",
+                      active
+                        ? "bg-brand-50 text-brand-700"
+                        : "bg-ink-200 text-ink-600",
+                    )}
+                  >
                     {item.badge}
                   </span>
                 ) : null}

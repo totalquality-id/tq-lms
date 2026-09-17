@@ -1,6 +1,6 @@
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-nav";
-import { navigationFor } from "@/lib/navigation";
+import { navigationFor, workspaceFor } from "@/lib/navigation";
 import { home } from "@/lib/policy";
 import { labels } from "@/lib/utils";
 import { currentUser } from "@/services/access";
@@ -12,6 +12,7 @@ export default async function WorkspaceLayout({
 }) {
   const user = await currentUser();
   const groups = navigationFor(user.role);
+  const workspace = workspaceFor(user.role);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -22,21 +23,27 @@ export default async function WorkspaceLayout({
           roleLabel: labels[user.role] ?? user.role,
         }}
         groups={groups}
+        workspace={workspace}
         home={home(user.role)}
       />
 
       <div className="flex flex-1">
-        <AppSidebar groups={groups} />
+        <AppSidebar groups={groups} workspace={workspace} />
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col bg-ink-50">
           <main
             id="main-content"
-            className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-safe"
+            className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-safe sm:px-6 lg:px-8"
           >
             {children}
           </main>
-          <footer className="no-print border-t border-ink-200 py-4 text-center text-xs text-ink-400">
-            Total Quality Learning · PT Total Quality Indonesia
+          <footer className="no-print border-t border-ink-200 px-4 py-4 sm:px-6 lg:px-8">
+            <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
+              <span>
+                © {new Date().getFullYear()} PT Total Quality Indonesia
+              </span>
+              <span>TQ Learning</span>
+            </div>
           </footer>
         </div>
       </div>

@@ -10,47 +10,53 @@
    ========================================================================== */
 
 @theme {
-  --color-brand-50: #eff4fa;
-  --color-brand-100: #dbe7f3;
-  --color-brand-200: #bad0e6;
-  --color-brand-300: #8fb0d3;
-  --color-brand-400: #5f88b6;
-  --color-brand-500: #3f699b;
-  --color-brand-600: #2b5589;
-  --color-brand-700: #244570;
-  --color-brand-800: #1f3a5c;
-  --color-brand-900: #1b324e;
+  /* Keluarga biru TQ. Rona berasal dari logo (#0201FE), tetapi kepekatannya
+     diturunkan jauh: biru logo yang murni terlalu keras untuk dibaca berjam-jam
+     pada tabel dan formulir. Yang dipakai antarmuka adalah indigo yang sama
+     rononya namun lebih rendah saturasinya, sehingga tetap terasa sebagai warna
+     perusahaan tanpa memukul mata. */
+  --color-brand-50: #f3f5fb;
+  --color-brand-100: #e6e9f5;
+  --color-brand-200: #ced4ea;
+  --color-brand-300: #adb6dc;
+  --color-brand-400: #8792c7;
+  --color-brand-500: #6974b3;
+  --color-brand-600: #5461a4;
+  --color-brand-700: #454f88;
+  --color-brand-800: #3a426f;
+  --color-brand-900: #32385c;
 
   --color-ink-25: #fcfcfd;
-  --color-ink-50: #f7f9fb;
-  --color-ink-100: #eff2f6;
-  --color-ink-200: #e2e7ee;
-  --color-ink-300: #cbd3de;
-  --color-ink-400: #98a3b3;
-  --color-ink-500: #697687;
-  --color-ink-600: #4c5867;
-  --color-ink-700: #3a4553;
-  --color-ink-800: #262e39;
-  --color-ink-900: #161c24;
+  --color-ink-50: #f6f7f9;
+  --color-ink-100: #eef0f3;
+  --color-ink-200: #e3e6eb;
+  --color-ink-300: #ccd1d9;
+  --color-ink-400: #98a0ac;
+  --color-ink-500: #6b7480;
+  --color-ink-600: #4d5663;
+  --color-ink-700: #3a424e;
+  --color-ink-800: #262c36;
+  --color-ink-900: #151a21;
 
-  --color-accent: #facc01;
+  --color-success: #12795a;
+  --color-success-bg: #e6f5ef;
+  --color-warning: #8a5a06;
+  --color-warning-bg: #fdf3e0;
+  --color-danger: #ab2f2a;
+  --color-danger-bg: #fbeceb;
 
-  --color-success: #1a7f52;
-  --color-success-bg: #e8f5ef;
-  --color-warning: #97620a;
-  --color-warning-bg: #fdf3e2;
-  --color-danger: #b0332b;
-  --color-danger-bg: #fbecea;
-
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --radius-card: 0.625rem;
+  --radius-card: 0.5rem;
 
-  --shadow-card: 0 1px 2px 0 rgb(22 28 36 / 0.04),
-    0 1px 3px 0 rgb(22 28 36 / 0.06);
-  --shadow-overlay: 0 10px 15px -3px rgb(22 28 36 / 0.08),
-    0 4px 6px -4px rgb(22 28 36 / 0.06);
+  /* Permukaan hampir rata: satu garis rambut ditambah bayangan yang nyaris
+     tak terlihat. Kedalaman datang dari kontras latar, bukan dari bayangan. */
+  --shadow-card: 0 1px 2px 0 rgb(21 26 33 / 0.04);
+  --shadow-raised: 0 1px 3px 0 rgb(21 26 33 / 0.08),
+    0 1px 2px -1px rgb(21 26 33 / 0.06);
+  --shadow-overlay: 0 12px 24px -8px rgb(21 26 33 / 0.14),
+    0 4px 8px -4px rgb(21 26 33 / 0.08);
 }
 
 @layer base {
@@ -68,14 +74,34 @@
     background-color: var(--color-ink-50);
     color: var(--color-ink-800);
     font-family: var(--font-sans);
+    /* 15px dengan jarak baris longgar dan tanpa perapatan huruf. Ukuran 14px
+       yang dirapatkan sebelumnya membuat teks Indonesia — yang katanya panjang
+       — melelahkan dibaca pada tabel dan paragraf instruksi. */
     font-size: 0.9375rem;
-    line-height: 1.55;
+    line-height: 1.65;
+  }
+
+  /* Hanya judul besar yang dirapatkan sedikit; teks isi dibiarkan pada jarak
+     bawaannya agar tetap lapang. */
+  h1,
+  h2 {
+    letter-spacing: -0.01em;
+  }
+
+  /* Berat 700 tidak dimuat. Tanpa aturan ini peramban akan menebalkan sendiri
+     elemen b/strong dan memunculkan kembali lompatan berat yang justru ingin
+     dihindari — dengan bentuk huruf yang lebih buruk pula. */
+  b,
+  strong,
+  th {
+    font-weight: 600;
   }
 
   /* Fokus terlihat jelas untuk aksesibilitas keyboard. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-600);
+    outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
+    border-radius: 2px;
   }
 
   /* Angka sejajar pada tabel dan nilai agar mudah dibandingkan. */

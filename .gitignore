@@ -6,3 +6,7 @@ node_modules/
 .local/
 playwright-report/
 test-results/
+
+.vercel
+.vercel
+.vercel-token

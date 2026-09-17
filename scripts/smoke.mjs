@@ -31,6 +31,16 @@ async function session(email, password = process.env.DEMO_PASSWORD) {
   });
   return request;
 }
+/**
+ * Pada dev server, redirect() dari Server Component menghasilkan 307. Di
+ * Vercel, hal yang sama dikirim sebagai dokumen 200 yang langsung berpindah.
+ * Yang bermakna karena itu bukan kode statusnya, melainkan isinya: halaman
+ * yang tidak boleh dibuka tidak boleh memuat isi halaman tersebut.
+ */
+function assertDenied(text, marker) {
+  assert.ok(!text.includes(marker), `isi halaman terlarang ikut terkirim: ${marker}`);
+}
+
 let count = 0;
 async function check(name, fn) {
   await fn();
@@ -58,10 +68,9 @@ await check(
   },
 );
 await check("participant is redirected out of admin", async () => {
-  const r = await participant("/admin");
-  const text = await r.text();
-  assert.ok(r.status === 307 || text.includes("NEXT_REDIRECT"));
-  assert.ok(!text.includes("Ringkasan operasional pelatihan"));
+  const text = await (await participant("/admin")).text();
+  assertDenied(text, "Ringkasan operasional pelatihan");
+  assertDenied(text, "Perlu ditindaklanjuti");
 });
 const pic = await session("pic@globalindo.local");
 await check("PIC sees own organization only", async () => {
@@ -231,9 +240,7 @@ await check("PIC certificate list stays within the organization", async () => {
 });
 
 await check("PIC cannot reach the question bank", async () => {
-  const r = await pic("/admin/question-bank");
-  const text = await r.text();
-  assert.ok(r.status === 307 || text.includes("NEXT_REDIRECT"));
+  assertDenied(await (await pic("/admin/question-bank")).text(), "Bank soal");
 });
 
 /* ---------------------------------------------------------------------------

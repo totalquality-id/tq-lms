@@ -169,8 +169,8 @@ export default async function AdminDashboard() {
         </section>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <section className="xl:col-span-2">
+      <div className="grid gap-6 2xl:grid-cols-3">
+        <section className="2xl:col-span-2">
           <SectionHeader
             title="Training aktif"
             description="Kelas yang sedang berjalan atau dibuka pendaftarannya."

@@ -79,6 +79,14 @@ Implemented: authentication and role routing; organizations, users, courses, mod
 
 Not implemented: private file upload (resources and assignment submissions are links; `TrainingResource.storageKey` and `AssignmentSubmission.storageKey` are reserved for Supabase Storage), QR attendance, email invitations and notification delivery, and automatic account provisioning. `Notification` rows are written on certificate issuance but are not yet surfaced in the interface.
 
+## Deployment topology
+
+The Supabase project hosts two unrelated applications. The company website owns the `public` schema; this LMS owns a separate `lms` schema with its own Postgres role (`tq_lms_app`) granted only on that schema. Neither the website's tables nor its database password were touched. Two Prisma applications cannot share one `public` schema — each maintains its own `_prisma_migrations` table, and both define a `User` table with incompatible shapes.
+
+Vercel functions run in `sin1`, the same region as the database. Prisma issues many round trips for a single page because of nested includes; with functions in the United States each of those crossed the Pacific and a training page exceeded the function timeout. For the same reason the pooled connection string does not set `connection_limit=1`: a single connection serialises those sub-queries.
+
+`accessibleBatch` currently loads the whole object graph for a training — every enrollment with its attendance, attempts, submissions, lesson completions, and evaluations — and every management tab pays for it. It is fast enough for classes of this size, but narrowing the include per tab is the obvious next optimisation as cohorts grow.
+
 ## Design
 
-Indonesian interface, Inter, `#2B5589` primary with a restrained `#FACC01` accent used only as a thin marker, neutral `ink` greys, white surfaces, borders in preference to shadows. Text-first sidebar without decorative icons, responsive drawer below `lg`, link-based tabs so every section has its own URL, understated status badges, and one filter bar per list. Participant pages are built for phones; administrative tables scroll horizontally inside their card rather than the page.
+Indonesian interface, Plus Jakarta Sans. The palette is taken from the TQ logo: blue `#0201FE` and yellow `#FACC01`, both sampled from the artwork itself. Neither is used at full strength across large surfaces — the logo blue is intense enough that a button-sized field of it reads as loud rather than serious. Buttons and headings use a deepened step of the same hue (`#2A2EB0`); the exact logo blue appears only where a line is thin enough to carry it: the active navigation marker and the focus ring. The yellow is rarer still — a short rule under the workspace title, on the sign-in page, and above empty states. Everything else is neutral grey on white. Text-first sidebar without decorative icons, responsive drawer below `lg`, link-based tabs so every section has its own URL, understated status badges, and one filter bar per list. Participant pages are built for phones; administrative tables scroll horizontally inside their card rather than the page.

@@ -43,6 +43,35 @@ npm run dev
 
 Buka http://localhost:3000. Akun demo tersedia untuk administrator, trainer, peserta, dan PIC. Seed dapat dijalankan ulang tanpa menggandakan record. Pada workspace ini database lokal bernama `tq-learning-workspace` telah disiapkan; mulai ulang dengan `npx prisma dev --name tq-learning-workspace` bila diperlukan. Port database tersimpan dalam `.env` lokal.
 
+## Deployment
+
+Live: **https://tq-lms.vercel.app** (proyek Vercel `tq-lms`, fungsi di region `sin1`).
+
+### Database: satu proyek Supabase, dua skema terpisah
+
+Proyek Supabase `totalquality-website` sudah dipakai situs perusahaan — skema `public` berisi tabel `Hero`, `News`, `Career`, dan seterusnya, termasuk tabel `User` dan riwayat migrasi Prisma milik situs itu.
+
+LMS karena itu **tidak** memakai `public`. Seluruh tabelnya berada di skema `lms`, dengan peran Postgres `tq_lms_app` yang hanya diberi hak atas skema tersebut. Skema `public` dan kata sandi database milik situs tidak disentuh. Pemisahan ini yang membuat `User` milik LMS dan `User` milik situs dapat hidup berdampingan.
+
+Connection string memakai `?schema=lms`. Pooler transaksi (port 6543) dipakai runtime aplikasi dan pooler sesi (port 5432) dipakai migrasi.
+
+`connection_limit` sengaja tidak diisi 1: nested include Prisma menghasilkan banyak sub-query, dan dengan satu koneksi semuanya mengantre — satu halaman pernah memakan 23 detik dan melewati batas waktu fungsi. Fungsi juga dipasang di `sin1` agar sekamar dengan database; sebelumnya setiap perjalanan bolak-balik menyeberangi Pasifik.
+
+### Login di produksi
+
+`ENABLE_DEMO_AUTH=false` dan `NODE_ENV=production`, jadi tombol peran pada halaman masuk tidak muncul dan akun `isDemo` tidak dapat dipakai. Empat akun peran disediakan lewat Supabase Auth dengan `authId` tertaut ke record `User`. Kredensialnya ada pada `.env.deployment-access.md` (diabaikan git).
+
+Sembilan peserta contoh lainnya tetap `isDemo` — mereka data untuk mengisi daftar dan laporan, bukan akun yang bisa masuk.
+
+### Memperbarui deployment
+
+```powershell
+npx vercel deploy --prod
+```
+
+`.vercelignore` menahan `.env*` agar berkas rahasia lokal tidak ikut terunggah; nilai untuk produksi berasal dari Environment Variables milik proyek Vercel.
+
+
 ## Verifikasi
 
 ```powershell

@@ -28,14 +28,14 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 px-4 py-3 sm:px-5",
+        "flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 px-5 py-4 sm:px-6",
         className,
       )}
     >
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
+        <h2 className="text-[15px] font-semibold text-ink-900">{title}</h2>
         {description ? (
-          <p className="mt-0.5 text-xs text-ink-500">{description}</p>
+          <p className="mt-1 text-xs text-ink-500">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -44,14 +44,14 @@ export function CardHeader({
 }
 
 export function CardBody({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("px-4 py-4 sm:px-5", className)} {...props} />;
+  return <div className={cn("px-5 py-5 sm:px-6", className)} {...props} />;
 }
 
 export function CardFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-end gap-2 border-t border-ink-200 px-4 py-3 sm:px-5",
+        "flex flex-wrap items-center justify-end gap-2 border-t border-ink-200 px-5 py-4 sm:px-6",
         className,
       )}
       {...props}
@@ -73,12 +73,12 @@ export function StatCard({
   hint?: ReactNode;
 }) {
   return (
-    <Card className="px-4 py-3">
+    <Card className="px-5 py-4">
       <p className="text-xs font-medium text-ink-500">{label}</p>
-      <p className="tabular mt-1 text-2xl font-semibold text-ink-900">
+      <p className="tabular mt-1.5 text-[28px] leading-none font-semibold text-ink-900">
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-xs text-ink-500">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-xs text-ink-500">{hint}</p> : null}
     </Card>
   );
 }

@@ -29,7 +29,7 @@ export default async function VerifyPage({
     <main className="flex min-h-full flex-col items-center px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <BrandMark size={44} />
+          <BrandMark height={27} />
           <p className="text-sm font-semibold text-ink-900">
             PT Total Quality Indonesia
           </p>

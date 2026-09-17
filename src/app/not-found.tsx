@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export default function NotFound() {
   return (
     <main className="flex min-h-full flex-col items-center justify-center px-4 py-16 text-center">
-      <BrandMark size={40} />
+      <BrandMark height={24} />
       <h1 className="mt-5 text-lg font-semibold text-ink-900">
         Halaman tidak ditemukan
       </h1>

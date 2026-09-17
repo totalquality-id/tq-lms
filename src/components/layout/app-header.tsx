@@ -3,23 +3,25 @@ import Link from "next/link";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/app-nav";
 import { UserMenu } from "@/components/layout/user-menu";
-import type { NavGroup } from "@/lib/navigation";
+import type { NavGroup, Workspace } from "@/lib/navigation";
 
 export function AppHeader({
   user,
   groups,
+  workspace,
   home,
 }: {
   user: { name: string; email: string; roleLabel: string };
   groups: NavGroup[];
+  workspace: Workspace;
   home: string;
 }) {
   return (
-    <header className="no-print sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
+    <header className="no-print sticky top-0 z-40 border-b border-ink-200 bg-white">
       <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
         {/* Berada sebelum tanda perusahaan agar menu menjadi hal pertama yang
             dijangkau ibu jari pada ponsel, sesuai kebiasaan platform. */}
-        <MobileNav groups={groups} />
+        <MobileNav groups={groups} workspace={workspace} />
         <Link href={home} className="min-w-0 rounded-md">
           <Brand />
         </Link>

@@ -8,11 +8,12 @@
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev --shadow-database-url \"postgres://postgres:postgres@localhost:51218/template1?sslmode=disable\"",
     "db:seed": "node --env-file=.env --import tsx prisma/seed.ts",
     "db:local": "prisma dev --name tq-learning-workspace",
     "test": "tsx --test tests/*.test.ts",
-    "test:integration": "node --env-file=.env scripts/smoke.mjs"
+    "test:integration": "node --env-file=.env scripts/smoke.mjs",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",

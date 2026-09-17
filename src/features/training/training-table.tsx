@@ -45,23 +45,23 @@ export function TrainingTable({
               <Td>
                 <Link
                   href={`${base}/${item.id}`}
-                  className="font-medium text-ink-900 hover:text-brand-700 hover:underline"
+                  className="font-semibold whitespace-nowrap text-ink-900 hover:text-brand-700 hover:underline"
                 >
                   {item.title}
                 </Link>
-                <p className="text-xs text-ink-500">
+                <p className="text-xs whitespace-nowrap text-ink-500">
                   {item.code} · {labels[item.mode] ?? item.mode}
                 </p>
               </Td>
               {showOrganization ? (
-                <Td className="text-sm">
+                <Td className="text-sm whitespace-nowrap">
                   {item.organization?.name ?? "Training umum"}
                 </Td>
               ) : null}
               <Td className="whitespace-nowrap text-sm">
                 {dateRange(item.startDate, item.endDate)}
               </Td>
-              <Td className="text-sm">
+              <Td className="text-sm whitespace-nowrap">
                 {item.trainers.map((link) => link.trainer.name).join(", ") || (
                   <span className="text-ink-400">Belum ditugaskan</span>
                 )}

@@ -1,29 +1,31 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 /**
- * Tanda perusahaan dipasang sebagai SVG sebaris, bukan berkas gambar: ukuran
- * pemakaiannya kecil, jumlah bentuknya sedikit, dan cara ini menghapus satu
- * permintaan jaringan pada setiap halaman.
+ * Perbandingan asli berkas logo, 1920 × 1055. Lebar dihitung dari tinggi yang
+ * diminta supaya tanda perusahaan tidak pernah tergepeng — Next.js juga
+ * memperingatkan bila hanya salah satu sisi yang ditentukan.
  */
+const RATIO = 1920 / 1055;
+
+/** Tanda perusahaan saja, untuk halaman publik dan keadaan tanpa navigasi. */
 export function BrandMark({
-  size = 32,
+  height = 28,
   className,
 }: {
-  size?: number;
+  height?: number;
   className?: string;
 }) {
   return (
-    <svg
-      viewBox="0 0 40 40"
-      width={size}
-      height={size}
-      aria-hidden
-      className={cn("shrink-0", className)}
-    >
-      <rect width="40" height="40" rx="9" fill="#2B5589" />
-      <path d="M8 11h24v5h-9v15h-6V16H8z" fill="white" />
-      <path d="M27 26h6v6h-6z" fill="#FACC01" />
-    </svg>
+    <Image
+      src="/tq-logo.webp"
+      alt=""
+      width={Math.round(height * RATIO)}
+      height={height}
+      priority
+      className={cn("shrink-0 object-contain", className)}
+    />
   );
 }
 
@@ -35,25 +37,23 @@ export function Brand({
   size?: "md" | "lg";
   className?: string;
 }) {
+  const large = size === "lg";
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <BrandMark size={size === "lg" ? 44 : 32} />
+    <span className={cn("flex items-center gap-3", className)}>
+      <BrandMark height={large ? 34 : 26} />
       <span className="leading-tight">
         <span
           className={cn(
             "block font-semibold text-ink-900",
-            size === "lg" ? "text-lg" : "text-sm",
+            large ? "text-lg" : "text-[15px]",
           )}
         >
-          Total Quality Learning
+          TQ Learning
         </span>
         <span
-          className={cn(
-            "block text-ink-500",
-            size === "lg" ? "text-sm" : "text-xs",
-          )}
+          className={cn("block text-ink-500", large ? "text-sm" : "text-xs")}
         >
-          PT Total Quality Indonesia
+          Total Quality Indonesia
         </span>
       </span>
     </span>
