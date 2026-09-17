@@ -1,0 +1,505 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TRAINER
+  PARTICIPANT
+  CORPORATE_PIC
+}
+
+enum TrainingMode {
+  OFFLINE
+  ONLINE
+  HYBRID
+}
+
+enum TrainingStatus {
+  DRAFT
+  OPEN
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  INVITED
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum LessonType {
+  TEXT
+  PDF
+  VIDEO
+  IMAGE
+  FILE
+  EXTERNAL_LINK
+}
+
+enum AssessmentType {
+  PRE_TEST
+  QUIZ
+  FINAL_EXAM
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_TEXT
+  ESSAY
+}
+
+enum CertificateStatus {
+  DRAFT
+  ISSUED
+  REVOKED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  EXCUSED
+  ABSENT
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  REVIEWED
+  REVISION_REQUIRED
+  COMPLETED
+}
+
+model User {
+  id                  String                 @id @default(cuid())
+  email               String                 @unique
+  name                String
+  role                UserRole               @default(PARTICIPANT)
+  authId              String?                @unique
+  jobTitle            String?
+  active              Boolean                @default(true)
+  isDemo              Boolean                @default(false)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  createdBy           String?
+  updatedBy           String?
+  deletedAt           DateTime?
+  memberships         OrganizationMember[]
+  trainingAssignments TrainingBatchTrainer[]
+  enrollments         Enrollment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@index([role, deletedAt])
+}
+
+model Organization {
+  id        String               @id @default(cuid())
+  name      String
+  industry  String?
+  email     String?
+  address   String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  members   OrganizationMember[]
+  batches   TrainingBatch[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  isPic          Boolean      @default(false)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Course {
+  id               String          @id @default(cuid())
+  title            String
+  slug             String          @unique
+  code             String          @default("TQ")
+  shortDescription String
+  description      String          @default("")
+  objectives       String          @default("")
+  category         String
+  thumbnail        String?
+  published        Boolean         @default(false)
+  duration         Int             @default(8)
+  passingGrade     Int             @default(70)
+  sequential       Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  deletedAt        DateTime?
+  modules          CourseModule[]
+  batches          TrainingBatch[]
+  questions        Question[]
+
+  @@index([published, deletedAt])
+}
+
+model CourseModule {
+  id       String   @id @default(cuid())
+  courseId String
+  title    String
+  position Int
+  course   Course   @relation(fields: [courseId], references: [id])
+  lessons  Lesson[]
+
+  @@unique([courseId, position])
+}
+
+model Lesson {
+  id          String             @id @default(cuid())
+  moduleId    String
+  title       String
+  type        LessonType         @default(TEXT)
+  content     String             @default("")
+  resourceUrl String?
+  duration    Int                @default(15)
+  position    Int
+  required    Boolean            @default(true)
+  module      CourseModule       @relation(fields: [moduleId], references: [id])
+  completions LessonCompletion[]
+
+  @@unique([moduleId, position])
+}
+
+model TrainingBatch {
+  id                String                 @id @default(cuid())
+  code              String                 @unique
+  courseId          String
+  organizationId    String?
+  title             String
+  mode              TrainingMode
+  status            TrainingStatus         @default(DRAFT)
+  startDate         DateTime
+  endDate           DateTime
+  startTime         String                 @default("09:00")
+  endTime           String                 @default("16:00")
+  venue             String?
+  meetingUrl        String?
+  capacity          Int                    @default(30)
+  passingGrade      Int?
+  minimumAttendance Int                    @default(80)
+  description       String                 @default("")
+  notes             String                 @default("")
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  deletedAt         DateTime?
+  course            Course                 @relation(fields: [courseId], references: [id])
+  organization      Organization?          @relation(fields: [organizationId], references: [id])
+  trainers          TrainingBatchTrainer[]
+  enrollments       Enrollment[]
+  assessments       Assessment[]
+  assignments       Assignment[]
+  evaluation        TrainingEvaluation?
+  resources         TrainingResource[]
+
+  @@index([organizationId, status, startDate])
+  @@index([courseId])
+}
+
+model TrainingBatchTrainer {
+  id        String        @id @default(cuid())
+  batchId   String
+  trainerId String
+  batch     TrainingBatch @relation(fields: [batchId], references: [id])
+  trainer   User          @relation(fields: [trainerId], references: [id])
+
+  @@unique([batchId, trainerId])
+  @@index([trainerId])
+}
+
+model Enrollment {
+  id            String                 @id @default(cuid())
+  batchId       String
+  participantId String
+  status        EnrollmentStatus       @default(ENROLLED)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  completedAt   DateTime?
+  deletedAt     DateTime?
+  batch         TrainingBatch          @relation(fields: [batchId], references: [id])
+  participant   User                   @relation(fields: [participantId], references: [id])
+  attendance    Attendance[]
+  lessons       LessonCompletion[]
+  attempts      AssessmentAttempt[]
+  submissions   AssignmentSubmission[]
+  evaluations   EvaluationResponse[]
+  certificate   Certificate?
+
+  @@unique([batchId, participantId])
+  @@index([participantId, status])
+}
+
+model LessonCompletion {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  completedAt  DateTime   @default(now())
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  lesson       Lesson     @relation(fields: [lessonId], references: [id])
+
+  @@unique([enrollmentId, lessonId])
+}
+
+model Attendance {
+  id           String           @id @default(cuid())
+  enrollmentId String
+  date         DateTime         @db.Date
+  status       AttendanceStatus
+  markedBy     String
+  updatedAt    DateTime         @updatedAt
+  enrollment   Enrollment       @relation(fields: [enrollmentId], references: [id])
+
+  @@unique([enrollmentId, date])
+}
+
+model Assessment {
+  id                 String               @id @default(cuid())
+  batchId            String
+  title              String
+  instructions       String               @default("")
+  type               AssessmentType
+  startsAt           DateTime?
+  endsAt             DateTime?
+  durationMinutes    Int                  @default(30)
+  passingGrade       Int                  @default(70)
+  maxAttempts        Int                  @default(1)
+  randomizeQuestions Boolean              @default(false)
+  randomizeOptions   Boolean              @default(false)
+  showResult         Boolean              @default(false)
+  showAnswers        Boolean              @default(false)
+  questionLimit      Int?
+  selectionRules     Json?
+  published          Boolean              @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  batch              TrainingBatch        @relation(fields: [batchId], references: [id])
+  questions          AssessmentQuestion[]
+  attempts           AssessmentAttempt[]
+}
+
+model Question {
+  id          String               @id @default(cuid())
+  courseId    String
+  topic       String
+  difficulty  String               @default("MEDIUM")
+  type        QuestionType
+  text        String
+  correctText String?
+  explanation String?
+  points      Int                  @default(1)
+  deletedAt   DateTime?
+  course      Course               @relation(fields: [courseId], references: [id])
+  options     QuestionOption[]
+  assessments AssessmentQuestion[]
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  text       String
+  correct    Boolean  @default(false)
+  position   Int
+  question   Question @relation(fields: [questionId], references: [id])
+
+  @@unique([questionId, position])
+}
+
+model AssessmentQuestion {
+  assessmentId String
+  questionId   String
+  position     Int
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  question     Question   @relation(fields: [questionId], references: [id])
+
+  @@id([assessmentId, questionId])
+}
+
+model AssessmentAttempt {
+  id               String             @id @default(cuid())
+  assessmentId     String
+  enrollmentId     String
+  attemptNumber    Int
+  startedAt        DateTime           @default(now())
+  expiresAt        DateTime
+  submittedAt      DateTime?
+  score            Float?
+  passed           Boolean?
+  questionSnapshot Json
+  assessment       Assessment         @relation(fields: [assessmentId], references: [id])
+  enrollment       Enrollment         @relation(fields: [enrollmentId], references: [id])
+  answers          AssessmentAnswer[]
+
+  @@unique([assessmentId, enrollmentId, attemptNumber])
+}
+
+model AssessmentAnswer {
+  id         String            @id @default(cuid())
+  attemptId  String
+  questionId String
+  answer     Json
+  score      Float?
+  reviewedBy String?
+  reviewedAt DateTime?
+  feedback   String?
+  attempt    AssessmentAttempt @relation(fields: [attemptId], references: [id])
+
+  @@unique([attemptId, questionId])
+}
+
+model Assignment {
+  id           String                 @id @default(cuid())
+  batchId      String
+  title        String
+  instructions String
+  dueAt        DateTime
+  allowedTypes String[]
+  maxBytes     Int                    @default(10485760)
+  maxScore     Int                    @default(100)
+  required     Boolean                @default(true)
+  published    Boolean                @default(false)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @default(now()) @updatedAt
+  deletedAt    DateTime?
+  batch        TrainingBatch          @relation(fields: [batchId], references: [id])
+  submissions  AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  enrollmentId String
+  link         String           @default("")
+  notes        String           @default("")
+  storageKey   String?
+  status       SubmissionStatus @default(SUBMITTED)
+  score        Float?
+  feedback     String?
+  submittedAt  DateTime         @default(now())
+  updatedAt    DateTime         @default(now()) @updatedAt
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id])
+  enrollment   Enrollment       @relation(fields: [enrollmentId], references: [id])
+
+  @@unique([assignmentId, enrollmentId])
+}
+
+model TrainingEvaluation {
+  id        String               @id @default(cuid())
+  batchId   String               @unique
+  title     String               @default("Evaluasi pelatihan")
+  questions Json
+  open      Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  batch     TrainingBatch        @relation(fields: [batchId], references: [id])
+  responses EvaluationResponse[]
+}
+
+model EvaluationResponse {
+  id           String             @id @default(cuid())
+  evaluationId String
+  enrollmentId String
+  answers      Json
+  submittedAt  DateTime           @default(now())
+  evaluation   TrainingEvaluation @relation(fields: [evaluationId], references: [id])
+  enrollment   Enrollment         @relation(fields: [enrollmentId], references: [id])
+
+  @@unique([evaluationId, enrollmentId])
+}
+
+model Certificate {
+  id            String            @id @default(cuid())
+  number        String            @unique
+  enrollmentId  String            @unique
+  status        CertificateStatus @default(DRAFT)
+  issuedAt      DateTime?
+  revokedAt     DateTime?
+  revokedReason String?
+  storageKey    String?
+  snapshot      Json
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  enrollment    Enrollment        @relation(fields: [enrollmentId], references: [id])
+}
+
+/// Nomor sertifikat tidak boleh dipakai ulang. Menghitung ulang baris
+/// Certificate akan mendaur ulang nomor setelah pencabutan, jadi urutannya
+/// disimpan terpisah dan hanya pernah bertambah.
+model CertificateSequence {
+  scope String @id
+  last  Int    @default(0)
+}
+
+model TrainingResource {
+  id          String        @id @default(cuid())
+  batchId     String
+  title       String
+  description String        @default("")
+  url         String
+  storageKey  String?
+  mimeType    String        @default("link")
+  size        Int           @default(0)
+  createdAt   DateTime      @default(now())
+  createdBy   String?
+  deletedAt   DateTime?
+  batch       TrainingBatch @relation(fields: [batchId], references: [id])
+
+  @@index([batchId, deletedAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId, createdAt])
+}
