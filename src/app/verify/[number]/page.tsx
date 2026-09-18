@@ -33,7 +33,9 @@ export default async function VerifyPage({
           <p className="text-sm font-semibold text-ink-900">
             PT Total Quality Indonesia
           </p>
-          <p className="text-xs text-ink-500">Verifikasi sertifikat pelatihan</p>
+          <p className="text-xs text-ink-500">
+            Verifikasi sertifikat pelatihan
+          </p>
         </div>
 
         {!certificate ? (

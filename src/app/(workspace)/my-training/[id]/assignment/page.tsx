@@ -55,7 +55,8 @@ export default async function AssignmentListPage({
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                {submission?.score !== null && submission?.score !== undefined ? (
+                {submission?.score !== null &&
+                submission?.score !== undefined ? (
                   <span className="tabular text-sm font-medium text-ink-900">
                     {Math.round(submission.score)}/{assignment.maxScore}
                   </span>

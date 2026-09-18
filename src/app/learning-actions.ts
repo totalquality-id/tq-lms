@@ -20,7 +20,9 @@ export async function lessonAction(
     else await uncompleteLesson(batchId, lessonId);
     revalidatePath(`/my-training/${batchId}`, "layout");
     return {
-      success: done ? "Pelajaran ditandai selesai." : "Tanda selesai dibatalkan.",
+      success: done
+        ? "Pelajaran ditandai selesai."
+        : "Tanda selesai dibatalkan.",
     };
   } catch (error) {
     return failure(error);

@@ -8,6 +8,7 @@ import { bestScore } from "@/lib/grading";
 import { attendanceRate } from "@/lib/progress";
 import { dateInput, daysBetween } from "@/lib/utils";
 import { requireAdmin, requireBatchStaff } from "./access";
+import { notify } from "./notification";
 
 // Aturan kelulusan adalah logika murni dan tinggal di lib, agar dapat diuji
 // tanpa basis data.
@@ -165,14 +166,16 @@ export async function issueCertificate(batchId: string, enrollmentId: string) {
         },
       });
 
-      await tx.notification.create({
-        data: {
-          userId: enrollment.participantId,
+      await notify(
+        enrollment.participantId,
+        {
           title: "Sertifikat diterbitkan",
-          message: `Sertifikat ${certificate.number} untuk ${batch.title} telah tersedia.`,
+          message: `Sertifikat ${certificate.number} untuk ${batch.title} telah tersedia dan dapat Anda unduh.`,
           href: "/certificates",
+          email: true,
         },
-      });
+        tx,
+      );
 
       return certificate.number;
     },

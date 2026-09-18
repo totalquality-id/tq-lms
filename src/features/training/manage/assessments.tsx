@@ -2,21 +2,58 @@ import { archiveAssessmentAction, assessmentAction } from "@/app/staff-actions";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/ui/action-button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { Pagination } from "@/components/ui/pagination";
 import { Note } from "@/components/ui/field";
 import { EmptyState, Table, TableWrap, Td, Th } from "@/components/ui/table";
 import { DialogForm } from "@/features/management/dialog-form";
 import { assessmentFields } from "@/features/management/staff-fields";
 import { db } from "@/lib/db";
+import { parseRules } from "@/lib/question-selection";
 import { dateTime, labels, minutes } from "@/lib/utils";
-import { accessibleBatch } from "@/services/access";
+import { ROWS_PER_PAGE, batchAssessments } from "@/services/batch";
 import { bestScore } from "@/services/assessment";
+import { courseQuestions, courseTopics } from "@/services/question-bank";
+import { ManualQuestionPicker, SelectionRulesForm } from "./question-selection";
 
-export async function ManageAssessments({ id }: { id: string }) {
-  const { batch } = await accessibleBatch(id);
-
-  const bankSize = await db.question.count({
-    where: { courseId: batch.courseId, deletedAt: null },
+export async function ManageAssessments({
+  id,
+  page,
+  q,
+}: {
+  id: string;
+  page: number;
+  q?: string;
+}) {
+  const { batch, attempted, participants } = await batchAssessments(id, {
+    page,
+    q,
   });
+
+  // Bank soal dibaca sekali dan dipakai bersama oleh pemilihan manual,
+  // aturan per topik, dan ringkasan di bawah tabel.
+  const [bank, topics, chosen] = await Promise.all([
+    courseQuestions(id),
+    courseTopics(id),
+    db.assessmentQuestion.findMany({
+      where: { assessment: { batchId: id } },
+      orderBy: { position: "asc" },
+      select: { assessmentId: true, questionId: true },
+    }),
+  ]);
+  const bankSize = bank.length;
+  const manualByAssessment = new Map<string, string[]>();
+  for (const link of chosen) {
+    const list = manualByAssessment.get(link.assessmentId);
+    if (list) list.push(link.questionId);
+    else manualByAssessment.set(link.assessmentId, [link.questionId]);
+  }
+
+  const SOURCE_LABEL: Record<string, string> = {
+    ALL: "Seluruh bank soal",
+    MANUAL: "Dipilih trainer",
+    RULES: "Per topik",
+  };
 
   return (
     <div className="space-y-4">
@@ -41,6 +78,7 @@ export async function ManageAssessments({ id }: { id: string }) {
                 <tr>
                   <Th>Penilaian</Th>
                   <Th>Jenis</Th>
+                  <Th>Sumber soal</Th>
                   <Th>Jendela waktu</Th>
                   <Th className="text-right">Dikerjakan</Th>
                   <Th>Status</Th>
@@ -51,13 +89,6 @@ export async function ManageAssessments({ id }: { id: string }) {
               </thead>
               <tbody>
                 {batch.assessments.map((assessment) => {
-                  const attempts = batch.enrollments.flatMap((enrollment) =>
-                    enrollment.attempts.filter(
-                      (attempt) =>
-                        attempt.assessmentId === assessment.id &&
-                        attempt.submittedAt,
-                    ),
-                  );
                   return (
                     <tr key={assessment.id}>
                       <Td>
@@ -74,6 +105,24 @@ export async function ManageAssessments({ id }: { id: string }) {
                         <Badge tone="neutral">
                           {labels[assessment.type] ?? assessment.type}
                         </Badge>
+                      </Td>
+                      <Td>
+                        <p className="text-xs whitespace-nowrap text-ink-700">
+                          {SOURCE_LABEL[assessment.selection] ??
+                            assessment.selection}
+                        </p>
+                        <p className="tabular text-xs whitespace-nowrap text-ink-500">
+                          {assessment.selection === "MANUAL"
+                            ? `${(manualByAssessment.get(assessment.id) ?? []).length} soal`
+                            : assessment.selection === "RULES"
+                              ? `${parseRules(assessment.selectionRules).reduce(
+                                  (sum, rule) => sum + rule.count,
+                                  0,
+                                )} soal`
+                              : assessment.questionLimit
+                                ? `${assessment.questionLimit} dari ${bankSize}`
+                                : `${bankSize} soal`}
+                        </p>
                       </Td>
                       <Td className="text-xs whitespace-nowrap">
                         {assessment.startsAt || assessment.endsAt ? (
@@ -93,15 +142,8 @@ export async function ManageAssessments({ id }: { id: string }) {
                         )}
                       </Td>
                       <Td className="tabular text-right text-sm">
-                        {
-                          new Set(
-                            attempts.map((attempt) => attempt.enrollmentId),
-                          ).size
-                        }
-                        <span className="text-ink-400">
-                          {" "}
-                          / {batch.enrollments.length}
-                        </span>
+                        {attempted.get(assessment.id) ?? 0}
+                        <span className="text-ink-400"> / {participants}</span>
                       </Td>
                       <Td>
                         <StatusBadge
@@ -110,6 +152,25 @@ export async function ManageAssessments({ id }: { id: string }) {
                       </Td>
                       <Td>
                         <div className="flex justify-end gap-1">
+                          {assessment.selection === "MANUAL" ? (
+                            <ManualQuestionPicker
+                              batchId={id}
+                              assessmentId={assessment.id}
+                              title={assessment.title}
+                              bank={bank}
+                              selected={
+                                manualByAssessment.get(assessment.id) ?? []
+                              }
+                            />
+                          ) : assessment.selection === "RULES" ? (
+                            <SelectionRulesForm
+                              batchId={id}
+                              assessmentId={assessment.id}
+                              title={assessment.title}
+                              topics={topics}
+                              rules={parseRules(assessment.selectionRules)}
+                            />
+                          ) : null}
                           <DialogForm
                             action={assessmentAction.bind(
                               null,
@@ -169,12 +230,13 @@ export async function ManageAssessments({ id }: { id: string }) {
         </CardBody>
       </Card>
 
-      {batch.assessments.length && batch.enrollments.length ? (
+      {batch.assessments.length && participants ? (
         <Card>
           <CardHeader
             title="Nilai peserta"
             description="Nilai terbaik setiap peserta pada tiap penilaian."
           />
+          <FilterBar q={q} placeholder="Cari nama peserta…" />
           <TableWrap>
             <Table>
               <thead>
@@ -223,6 +285,12 @@ export async function ManageAssessments({ id }: { id: string }) {
               </tbody>
             </Table>
           </TableWrap>
+          <Pagination
+            total={batch._count.enrollments}
+            page={page}
+            size={ROWS_PER_PAGE}
+            params={{ q }}
+          />
         </Card>
       ) : null}
     </div>

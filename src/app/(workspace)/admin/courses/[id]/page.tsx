@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 
-import { Breadcrumb, PageHeader, SectionHeader } from "@/components/layout/page-header";
+import {
+  Breadcrumb,
+  PageHeader,
+  SectionHeader,
+} from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import {
   Card,

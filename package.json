@@ -13,6 +13,7 @@
     "db:local": "prisma dev --name tq-learning-workspace",
     "test": "tsx --test tests/*.test.ts",
     "test:integration": "node --env-file=.env scripts/smoke.mjs",
+    "storage:setup": "node --env-file=.env scripts/setup-storage.mjs",
     "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {

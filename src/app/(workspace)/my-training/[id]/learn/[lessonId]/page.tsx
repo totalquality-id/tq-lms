@@ -39,18 +39,21 @@ export default async function LessonPage({
             Pelajaran ini masih terkunci
           </p>
           <p className="text-sm text-ink-500">
-            Course ini disusun berurutan. Selesaikan aktivitas wajib
-            sebelumnya untuk membukanya.
+            Course ini disusun berurutan. Selesaikan aktivitas wajib sebelumnya
+            untuk membukanya.
           </p>
           <Button asChild variant="secondary" size="sm">
-            <Link href={`/my-training/${id}/learn`}>Kembali ke daftar materi</Link>
+            <Link href={`/my-training/${id}/learn`}>
+              Kembali ke daftar materi
+            </Link>
           </Button>
         </CardBody>
       </Card>
     );
 
   const previous = index > 0 ? lessons[index - 1] : null;
-  const next = index >= 0 && index < lessons.length - 1 ? lessons[index + 1] : null;
+  const next =
+    index >= 0 && index < lessons.length - 1 ? lessons[index + 1] : null;
 
   return (
     <div className="space-y-4">

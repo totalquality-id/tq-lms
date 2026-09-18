@@ -4,37 +4,29 @@ import { notFound } from "next/navigation";
 import { Prisma, type QuestionType } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { bestScore, gradeAnswer, type SnapshotQuestion } from "@/lib/grading";
 import {
-  bestScore,
-  gradeAnswer,
-  type SnapshotQuestion,
-} from "@/lib/grading";
+  parseRules,
+  selectQuestions,
+  shuffleInPlace as shuffle,
+} from "@/lib/question-selection";
 import { currentUser } from "./access";
+import { notify } from "./notification";
 
 // Penilaian objektif adalah logika murni dan tinggal di lib, agar aturannya
 // dapat diuji tanpa basis data.
-export {
-  bestScore,
-  gradeAnswer,
-  visibleQuestions,
-} from "@/lib/grading";
+export { bestScore, gradeAnswer, visibleQuestions } from "@/lib/grading";
 export type { SnapshotQuestion, VisibleQuestion } from "@/lib/grading";
 import { myEnrollment } from "./learning";
 import { submissionSchema } from "@/schemas/assessment";
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 /**
- * Pemilihan soal: daftar yang disusun manual jika ada, selain itu diambil
- * dari bank soal course. Pengacakan dan batas jumlah soal diterapkan di sini,
- * di server, supaya dua peserta memperoleh paket yang benar-benar berbeda.
+ * Menyusun paket soal untuk satu percobaan.
+ *
+ * Aturan pemilihannya murni dan tinggal di lib; yang dikerjakan di sini hanya
+ * membaca bank soal dan membekukan hasilnya. Pengacakan dan pembatasan jumlah
+ * dijalankan di server, sehingga dua peserta benar-benar memperoleh paket yang
+ * berbeda dan tidak ada yang dapat diatur dari peramban.
  */
 async function pickQuestions(
   tx: Prisma.TransactionClient,
@@ -53,25 +45,38 @@ async function pickQuestions(
     },
   });
 
-  let pool = assessment.questions
+  const manual = assessment.questions
     .map((link) => link.question)
     .filter((question) => !question.deletedAt);
 
-  if (pool.length === 0)
-    pool = await tx.question.findMany({
-      where: { courseId: assessment.batch.courseId, deletedAt: null },
-      include: { options: { orderBy: { position: "asc" } } },
-      orderBy: { id: "asc" },
-    });
+  // Bank soal hanya dibaca bila modenya memerlukannya.
+  const bank =
+    assessment.selection === "MANUAL"
+      ? []
+      : await tx.question.findMany({
+          where: { courseId: assessment.batch.courseId, deletedAt: null },
+          include: { options: { orderBy: { position: "asc" } } },
+          orderBy: { id: "asc" },
+        });
 
-  if (pool.length === 0)
-    throw new Error("Bank soal untuk penilaian ini masih kosong.");
+  const { questions } = selectQuestions(
+    {
+      mode: assessment.selection,
+      rules: parseRules(assessment.selectionRules),
+      limit: assessment.questionLimit,
+      randomize: assessment.randomizeQuestions,
+    },
+    { manual, bank },
+  );
 
-  let selected = assessment.randomizeQuestions ? shuffle(pool) : pool;
-  if (assessment.questionLimit && assessment.questionLimit > 0)
-    selected = selected.slice(0, assessment.questionLimit);
+  if (questions.length === 0)
+    throw new Error(
+      assessment.selection === "MANUAL"
+        ? "Daftar soal penilaian ini masih kosong. Hubungi trainer Anda."
+        : "Bank soal untuk penilaian ini masih kosong. Hubungi trainer Anda.",
+    );
 
-  return selected.map((question) => ({
+  return questions.map((question) => ({
     id: question.id,
     type: question.type,
     text: question.text,
@@ -104,9 +109,7 @@ export async function assessmentForParticipant(
   return { enrollment, assessment, attempts };
 }
 
-export type AttemptWindow =
-  | { ok: true }
-  | { ok: false; reason: string };
+export type AttemptWindow = { ok: true } | { ok: false; reason: string };
 
 export function attemptWindow(
   assessment: { startsAt: Date | null; endsAt: Date | null },
@@ -254,13 +257,13 @@ export async function submitAttempt(
       if (attempt.submittedAt)
         throw new Error("Percobaan ini sudah dikirim sebelumnya.");
 
-      const snapshot = attempt.questionSnapshot as unknown as SnapshotQuestion[];
+      const snapshot =
+        attempt.questionSnapshot as unknown as SnapshotQuestion[];
       const ids = new Set(snapshot.map((question) => question.id));
 
       // Toleransi 30 detik menutupi waktu perjalanan jaringan, sehingga
       // pengiriman di detik terakhir tidak hangus karena latensi.
-      const expired =
-        Date.now() > attempt.expiresAt.getTime() + 30 * 1000;
+      const expired = Date.now() > attempt.expiresAt.getTime() + 30 * 1000;
 
       if (!expired)
         for (const [questionId, value] of Object.entries(answers)) {
@@ -327,6 +330,7 @@ export async function gradeEssay(
           attempt: {
             include: {
               answers: true,
+              enrollment: true,
               assessment: {
                 include: { batch: { include: { trainers: true } } },
               },
@@ -344,10 +348,9 @@ export async function gradeEssay(
 
       const snapshot = answer.attempt
         .questionSnapshot as unknown as SnapshotQuestion[];
-      const question = snapshot.find(
-        (item) => item.id === answer.questionId,
-      );
-      if (!question) throw new Error("Soal tidak ditemukan pada percobaan ini.");
+      const question = snapshot.find((item) => item.id === answer.questionId);
+      if (!question)
+        throw new Error("Soal tidak ditemukan pada percobaan ini.");
       if (score < 0 || score > question.points)
         throw new Error(`Nilai harus antara 0 dan ${question.points}.`);
 
@@ -373,10 +376,7 @@ export async function gradeEssay(
       });
       if (outstanding) return;
 
-      const totalPoints = snapshot.reduce(
-        (sum, item) => sum + item.points,
-        0,
-      );
+      const totalPoints = snapshot.reduce((sum, item) => sum + item.points, 0);
       const earned = answers.reduce((sum, item) => sum + (item.score ?? 0), 0);
       const value = totalPoints ? (earned / totalPoints) * 100 : 0;
 
@@ -397,6 +397,20 @@ export async function gradeEssay(
           metadata: { score: value },
         },
       });
+
+      // Dikabarkan hanya ketika esai terakhir selesai diperiksa, yaitu saat
+      // nilai percobaannya benar-benar ada. Memberi tahu setiap kali satu esai
+      // dinilai akan mengirim beberapa kabar untuk satu ujian yang sama.
+      await notify(
+        answer.attempt.enrollment.participantId,
+        {
+          title: "Hasil ujian tersedia",
+          message: `${answer.attempt.assessment.title} sudah selesai diperiksa.`,
+          href: `/my-training/${batch.id}/assessment/${answer.attempt.assessmentId}`,
+          email: true,
+        },
+        tx,
+      );
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );

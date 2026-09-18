@@ -2,12 +2,21 @@ import Link from "next/link";
 
 import { SectionHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody, CardHeader, DescriptionList } from "@/components/ui/card";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  DescriptionList,
+} from "@/components/ui/card";
 import { Note } from "@/components/ui/field";
 import { ProgressBar } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/badge";
 import { dateRange, daysBetween, labels } from "@/lib/utils";
-import { attendanceRate, buildProgress, myEnrollment } from "@/services/learning";
+import {
+  attendanceRate,
+  buildProgress,
+  myEnrollment,
+} from "@/services/learning";
 
 const KIND_LABEL: Record<string, string> = {
   LESSON: "Pelajaran",

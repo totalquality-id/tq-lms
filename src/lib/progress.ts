@@ -5,10 +5,7 @@ import type {
 } from "@prisma/client";
 
 export type ActivityKind =
-  | "LESSON"
-  | "ASSESSMENT"
-  | "ASSIGNMENT"
-  | "EVALUATION";
+  "LESSON" | "ASSESSMENT" | "ASSIGNMENT" | "EVALUATION";
 
 export type Activity = {
   kind: ActivityKind;

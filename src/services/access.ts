@@ -6,7 +6,7 @@ import type { UserRole } from "@prisma/client";
 
 import { auth, demoEnabled } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { batchScope, home, isAdmin } from "@/lib/policy";
+import { home, isAdmin } from "@/lib/policy";
 
 export const currentUser = cache(async () => {
   const session = await auth();
@@ -57,47 +57,8 @@ export async function requireBatchStaff(batchId: string) {
   return { user, batch, admin: isAdmin(user.role) };
 }
 
-export async function accessibleBatch(id: string) {
-  const user = await currentUser();
-  const batch = await db.trainingBatch.findFirst({
-    where: { AND: [{ id }, batchScope(user)] },
-    include: {
-      course: {
-        include: {
-          modules: {
-            orderBy: { position: "asc" },
-            include: { lessons: { orderBy: { position: "asc" } } },
-          },
-        },
-      },
-      organization: true,
-      trainers: { include: { trainer: true } },
-      assessments: { where: { deletedAt: null }, orderBy: { type: "asc" } },
-      assignments: { where: { deletedAt: null }, orderBy: { dueAt: "asc" } },
-      resources: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
-      evaluation: { include: { _count: { select: { responses: true } } } },
-      enrollments: {
-        where: {
-          deletedAt: null,
-          ...(user.role === "PARTICIPANT" ? { participantId: user.id } : {}),
-        },
-        include: {
-          participant: true,
-          certificate: true,
-          attendance: true,
-          attempts: true,
-          submissions: true,
-          lessons: true,
-          evaluations: true,
-        },
-        orderBy: { participant: { name: "asc" } },
-      },
-    },
-  });
-  if (!batch) notFound();
-  return { user, batch, admin: isAdmin(user.role) };
-}
-
-export type AccessibleBatch = Awaited<
-  ReturnType<typeof accessibleBatch>
->["batch"];
+/**
+ * Pemuat data satu training tidak tinggal di sini. Setiap tab pengelolaan
+ * menyatakan sendiri apa yang dibacanya di `services/batch.ts`; berkas ini
+ * hanya menjawab siapa yang boleh membacanya.
+ */

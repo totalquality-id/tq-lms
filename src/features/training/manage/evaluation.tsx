@@ -3,7 +3,7 @@ import { ActionButton } from "@/components/ui/action-button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Note } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/table";
-import { accessibleBatch } from "@/services/access";
+import { batchEvaluation } from "@/services/batch";
 import { evaluationSummary } from "@/services/operations";
 
 /** Bilah rata-rata 1–5 dengan angkanya, tanpa grafik yang perlu ditafsirkan. */
@@ -37,7 +37,7 @@ function RatingRow({
 }
 
 export async function ManageEvaluation({ id }: { id: string }) {
-  const { batch } = await accessibleBatch(id);
+  const { batch } = await batchEvaluation(id);
   const summary = await evaluationSummary(id);
 
   if (!batch.evaluation)
@@ -61,8 +61,9 @@ export async function ManageEvaluation({ id }: { id: string }) {
       </Card>
     );
 
-  const responseRate = batch.enrollments.length
-    ? Math.round(((summary?.responses ?? 0) / batch.enrollments.length) * 100)
+  const participants = batch._count.enrollments;
+  const responseRate = participants
+    ? Math.round(((summary?.responses ?? 0) / participants) * 100)
     : 0;
 
   return (
@@ -70,7 +71,7 @@ export async function ManageEvaluation({ id }: { id: string }) {
       <Card>
         <CardHeader
           title="Evaluasi pelatihan"
-          description={`${summary?.responses ?? 0} dari ${batch.enrollments.length} peserta mengisi (${responseRate}%)`}
+          description={`${summary?.responses ?? 0} dari ${participants} peserta mengisi (${responseRate}%)`}
           action={
             batch.evaluation.open ? (
               <ActionButton

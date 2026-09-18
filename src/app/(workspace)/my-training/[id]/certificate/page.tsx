@@ -4,10 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Note } from "@/components/ui/field";
 import { db } from "@/lib/db";
 import { dateLong } from "@/lib/utils";
-import {
-  checkEligibility,
-  eligibilityInclude,
-} from "@/services/certificate";
+import { checkEligibility, eligibilityInclude } from "@/services/certificate";
 import { myEnrollment } from "@/services/learning";
 
 export default async function CertificatePage({

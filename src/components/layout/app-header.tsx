@@ -2,19 +2,23 @@ import Link from "next/link";
 
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/app-nav";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { NavGroup, Workspace } from "@/lib/navigation";
+import type { NotificationPanel } from "@/services/notification";
 
 export function AppHeader({
   user,
   groups,
   workspace,
   home,
+  notifications,
 }: {
   user: { name: string; email: string; roleLabel: string };
   groups: NavGroup[];
   workspace: Workspace;
   home: string;
+  notifications: NotificationPanel;
 }) {
   return (
     <header className="no-print sticky top-0 z-40 border-b border-ink-200 bg-white">
@@ -26,6 +30,7 @@ export function AppHeader({
           <Brand />
         </Link>
         <div className="ml-auto flex items-center gap-1">
+          <NotificationBell {...notifications} />
           <UserMenu
             name={user.name}
             email={user.email}

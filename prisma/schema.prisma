@@ -6,6 +6,11 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  // Hanya dipakai saat membuat migrasi baru (prisma migrate dev). Prisma 6
+  // tidak menyediakan flag CLI untuk ini, jadi harus lewat schema. Di produksi
+  // variabelnya tidak diisi: generate tidak membutuhkannya, dan migrasi
+  // dijalankan dari mesin pengembang, bukan dari build Vercel.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 enum UserRole {
@@ -74,6 +79,25 @@ enum AttendanceStatus {
   ABSENT
 }
 
+/// Dari mana satu penilaian mengambil soalnya.
+///
+/// Dinyatakan tegas, bukan disimpulkan dari ada-tidaknya daftar manual: trainer
+/// yang menyusun aturan per topik lalu menambah satu soal manual tidak boleh
+/// diam-diam berpindah perilaku.
+enum SelectionMode {
+  /// Seluruh bank soal course, dibatasi questionLimit bila diisi.
+  ALL
+  /// Hanya soal yang dipilih trainer, pada urutan yang ia tetapkan.
+  MANUAL
+  /// Sejumlah soal acak per topik, mengikuti selectionRules.
+  RULES
+}
+
+enum AuthTokenPurpose {
+  INVITE
+  RESET
+}
+
 enum SubmissionStatus {
   SUBMITTED
   REVIEWED
@@ -100,8 +124,29 @@ model User {
   enrollments         Enrollment[]
   notifications       Notification[]
   auditLogs           AuditLog[]
+  authTokens          AuthToken[]
 
   @@index([role, deletedAt])
+}
+
+/// Tautan sekali pakai untuk undangan akun dan penyetelan ulang kata sandi.
+///
+/// Yang disimpan hanya SHA-256 dari token; token mentahnya hanya pernah ada di
+/// dalam tautan. Dengan begitu salinan basis data yang bocor tidak dapat
+/// dipakai mengambil alih akun siapa pun.
+model AuthToken {
+  id        String           @id @default(cuid())
+  userId    String
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+  createdBy String?
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, purpose, usedAt])
+  @@index([expiresAt])
 }
 
 model Organization {
@@ -295,6 +340,7 @@ model Assessment {
   showResult         Boolean              @default(false)
   showAnswers        Boolean              @default(false)
   questionLimit      Int?
+  selection          SelectionMode @default(ALL)
   selectionRules     Json?
   published          Boolean              @default(false)
   deletedAt          DateTime?

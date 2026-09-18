@@ -12,11 +12,13 @@ import {
   assignmentFields,
   reviewFields,
 } from "@/features/management/staff-fields";
+import { fileNameOf } from "@/lib/upload";
 import { dateTime } from "@/lib/utils";
-import { accessibleBatch } from "@/services/access";
+import { batchAssignments } from "@/services/batch";
 
 export async function ManageAssignments({ id }: { id: string }) {
-  const { batch } = await accessibleBatch(id);
+  const { batch } = await batchAssignments(id);
+  const participants = batch._count.enrollments;
 
   return (
     <div className="space-y-4">
@@ -36,16 +38,9 @@ export async function ManageAssignments({ id }: { id: string }) {
         {batch.assignments.length ? (
           <ul className="divide-y divide-ink-100">
             {batch.assignments.map((assignment) => {
-              const submissions = batch.enrollments.flatMap((enrollment) =>
-                enrollment.submissions
-                  .filter((item) => item.assignmentId === assignment.id)
-                  .map((item) => ({
-                    submission: item,
-                    participant: enrollment.participant,
-                  })),
-              );
+              const { submissions } = assignment;
               const waiting = submissions.filter(
-                (row) => row.submission.status === "SUBMITTED",
+                (submission) => submission.status === "SUBMITTED",
               ).length;
 
               return (
@@ -62,8 +57,8 @@ export async function ManageAssignments({ id }: { id: string }) {
                         {assignment.published ? "terbit" : "draft"}
                       </p>
                       <p className="mt-1 text-xs text-ink-500">
-                        {submissions.length} dari {batch.enrollments.length}{" "}
-                        peserta mengumpulkan
+                        {submissions.length} dari {participants} peserta
+                        mengumpulkan
                         {waiting ? ` · ${waiting} menunggu penilaian` : ""}
                       </p>
                     </div>
@@ -112,20 +107,29 @@ export async function ManageAssignments({ id }: { id: string }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {submissions.map(({ submission, participant }) => (
+                          {submissions.map((submission) => (
                             <tr key={submission.id}>
                               <Td className="text-sm whitespace-nowrap">
-                                {participant.name}
+                                {submission.enrollment.participant.name}
                               </Td>
                               <Td>
-                                <a
-                                  href={submission.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs break-all text-brand-600 hover:underline"
-                                >
-                                  Buka tautan
-                                </a>
+                                {submission.storageKey ? (
+                                  <a
+                                    href={`/api/files/submission/${submission.id}`}
+                                    className="text-xs break-all text-brand-600 hover:underline"
+                                  >
+                                    {fileNameOf(submission.storageKey)}
+                                  </a>
+                                ) : (
+                                  <a
+                                    href={submission.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs break-all text-brand-600 hover:underline"
+                                  >
+                                    Buka tautan
+                                  </a>
+                                )}
                               </Td>
                               <Td className="text-xs whitespace-nowrap">
                                 {dateTime(submission.submittedAt)}
@@ -146,7 +150,7 @@ export async function ManageAssignments({ id }: { id: string }) {
                                     submission.id,
                                   )}
                                   title="Nilai tugas"
-                                  description={`${participant.name} — ${assignment.title}`}
+                                  description={`${submission.enrollment.participant.name} — ${assignment.title}`}
                                   fields={reviewFields(
                                     assignment.maxScore,
                                     submission,
@@ -179,8 +183,9 @@ export async function ManageAssignments({ id }: { id: string }) {
         )}
         <CardBody className="border-t border-ink-200">
           <p className="text-xs leading-relaxed text-ink-500">
-            Peserta mengumpulkan tugas sebagai tautan berkas. Pastikan Anda
-            memiliki akses baca pada tautan tersebut sebelum menilai.
+            Berkas yang diunggah peserta tersimpan pada penyimpanan privat dan
+            dibuka lewat tautan berumur pendek. Untuk pengumpulan berupa tautan
+            drive, pastikan Anda memiliki akses baca sebelum menilai.
           </p>
         </CardBody>
       </Card>

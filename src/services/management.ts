@@ -2,6 +2,8 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "./access";
+import { notify } from "./notification";
+import { dateRange } from "@/lib/utils";
 import { canAssignRole } from "@/lib/policy";
 import {
   organizationSchema,
@@ -305,6 +307,19 @@ export async function saveEntity(
           update: { status: "ENROLLED", deletedAt: null, updatedBy: actor.id },
         });
         entityId = record.id;
+        // Didaftarkan orang lain, jadi kelas ini muncul begitu saja pada
+        // halaman peserta. Surel menyertainya karena jadwalnya perlu masuk
+        // agenda sebelum hari pertama.
+        await notify(
+          participantId,
+          {
+            title: "Anda terdaftar pada training baru",
+            message: `${batch.title} — ${dateRange(batch.startDate, batch.endDate)}.`,
+            href: `/my-training/${batch.id}`,
+            email: true,
+          },
+          tx,
+        );
       } else if (entity === "trainer") {
         const { trainerId } = z
           .object({ trainerId: z.string().min(1) })

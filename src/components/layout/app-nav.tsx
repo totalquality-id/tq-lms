@@ -91,13 +91,13 @@ function NavList({
                   // posisi aktif terbaca sekilas tanpa blok warna besar.
                   "relative flex items-center gap-3 px-5 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-brand-50 font-semibold text-brand-700 before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-brand-500"
+                    ? "bg-brand-50 font-semibold text-brand-700 before:absolute before:inset-y-1 before:left-0 before:w-0.75 before:rounded-r before:bg-brand-500"
                     : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
                 )}
               >
                 <Icon
                   className={cn(
-                    "size-[18px] shrink-0",
+                    "size-4.5 shrink-0",
                     active ? "text-brand-600" : "text-ink-400",
                   )}
                   aria-hidden

@@ -30,10 +30,7 @@ export function TabNav({
 
   return (
     <nav
-      className={cn(
-        "no-print mb-5 -mx-1 overflow-x-auto px-1 pb-1",
-        className,
-      )}
+      className={cn("no-print mb-5 -mx-1 overflow-x-auto px-1 pb-1", className)}
     >
       <ul className="inline-flex min-w-max items-center gap-1 rounded-lg bg-ink-100 p-1">
         {items.map((item) => {

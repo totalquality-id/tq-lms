@@ -4,6 +4,7 @@ import { navigationFor, workspaceFor } from "@/lib/navigation";
 import { home } from "@/lib/policy";
 import { labels } from "@/lib/utils";
 import { currentUser } from "@/services/access";
+import { notificationPanel } from "@/services/notification";
 
 export default async function WorkspaceLayout({
   children,
@@ -13,6 +14,7 @@ export default async function WorkspaceLayout({
   const user = await currentUser();
   const groups = navigationFor(user.role);
   const workspace = workspaceFor(user.role);
+  const notifications = await notificationPanel();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -25,6 +27,7 @@ export default async function WorkspaceLayout({
         groups={groups}
         workspace={workspace}
         home={home(user.role)}
+        notifications={notifications}
       />
 
       <div className="flex flex-1">

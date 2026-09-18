@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { loginAction } from "@/app/auth-actions";
@@ -31,6 +32,14 @@ export function LoginForm() {
           required
         />
       </Field>
+      <div className="flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-xs font-medium text-brand-700 hover:underline"
+        >
+          Lupa kata sandi?
+        </Link>
+      </div>
       {state.error ? <FormError>{state.error}</FormError> : null}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Memproses…" : "Masuk"}

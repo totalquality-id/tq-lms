@@ -38,7 +38,10 @@ async function session(email, password = process.env.DEMO_PASSWORD) {
  * yang tidak boleh dibuka tidak boleh memuat isi halaman tersebut.
  */
 function assertDenied(text, marker) {
-  assert.ok(!text.includes(marker), `isi halaman terlarang ikut terkirim: ${marker}`);
+  assert.ok(
+    !text.includes(marker),
+    `isi halaman terlarang ikut terkirim: ${marker}`,
+  );
 }
 
 let count = 0;
@@ -137,11 +140,14 @@ await check("participant sees the learning tabs and progress", async () => {
   assert.match(text, /Daftar aktivitas/);
 });
 
-await check("participant can open a lesson of an enrolled training", async () => {
-  const r = await participant("/my-training/training-isms-sept/learn");
-  assert.equal(r.status, 200);
-  assert.match(await r.text(), /Modul 1/);
-});
+await check(
+  "participant can open a lesson of an enrolled training",
+  async () => {
+    const r = await participant("/my-training/training-isms-sept/learn");
+    assert.equal(r.status, 200);
+    assert.match(await r.text(), /Modul 1/);
+  },
+);
 
 await check("participant assessment page hides the answer key", async () => {
   const text = await (
@@ -166,11 +172,16 @@ await check("participant history shows the competency record", async () => {
   assert.match(await r.text(), /TQI-ISMS-2026-/);
 });
 
-await check("participant cannot read another participant's certificate", async () => {
-  // Nomor sertifikat milik peserta lain pada kelas yang sama.
-  const other = await participant("/api/certificates/TQI-ISMS-2026-000002/pdf");
-  assert.equal(other.status, 403);
-});
+await check(
+  "participant cannot read another participant's certificate",
+  async () => {
+    // Nomor sertifikat milik peserta lain pada kelas yang sama.
+    const other = await participant(
+      "/api/certificates/TQI-ISMS-2026-000002/pdf",
+    );
+    assert.equal(other.status, 403);
+  },
+);
 
 await check("participant owns their own certificate PDF", async () => {
   const r = await participant("/api/certificates/TQI-ISMS-2026-000008/pdf");
@@ -194,12 +205,15 @@ await check("certificate verification is public and minimal", async () => {
   assert.ok(!text.includes("participant@globalindo.local"));
 });
 
-await check("unknown certificate numbers are reported, not guessed", async () => {
-  const text = await (
-    await fetch(base + "/verify/TQI-ISMS-2026-999999")
-  ).text();
-  assert.match(text, /Sertifikat tidak ditemukan/);
-});
+await check(
+  "unknown certificate numbers are reported, not guessed",
+  async () => {
+    const text = await (
+      await fetch(base + "/verify/TQI-ISMS-2026-999999")
+    ).text();
+    assert.match(text, /Sertifikat tidak ditemukan/);
+  },
+);
 
 /* ---------------------------------------------------------------------------
    Trainer
@@ -240,7 +254,14 @@ await check("PIC certificate list stays within the organization", async () => {
 });
 
 await check("PIC cannot reach the question bank", async () => {
-  assertDenied(await (await pic("/admin/question-bank")).text(), "Bank soal");
+  // Penandanya harus isi halaman, bukan judulnya. Next.js menyelesaikan
+  // metadata rute yang cocok sebelum redirect dijalankan, sehingga
+  // <title>Bank soal</title> tetap terkirim — itu bukan kebocoran data, dan
+  // menguji judul akan menyalakan alarm palsu.
+  assertDenied(
+    await (await pic("/admin/question-bank")).text(),
+    "Cari pertanyaan atau topik",
+  );
 });
 
 /* ---------------------------------------------------------------------------
@@ -286,5 +307,123 @@ await check("participants cannot export reports at all", async () => {
   assert.equal(r.status, 403);
   assert.ok(!(await r.text()).includes("Dewi Lestari"));
 });
+
+/* ---------------------------------------------------------------------------
+   Undangan akun dan penyetelan ulang kata sandi
+   --------------------------------------------------------------------------- */
+
+await check("forgot-password page is public", async () => {
+  const r = await fetch(base + "/forgot-password");
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Lupa kata sandi/);
+});
+
+await check("an unknown token is refused, not merely hidden", async () => {
+  const r = await fetch(base + "/set-password/tidak-ada-token-seperti-ini");
+  const text = await r.text();
+  assert.match(text, /Tautan tidak berlaku/);
+  // Halaman penolakan tidak boleh membocorkan formulir penyetelan.
+  assert.ok(!text.includes('name="password"'));
+});
+
+await check("the reset form answers the same for unknown emails", async () => {
+  // Jawaban yang berbeda untuk email terdaftar dan tidak terdaftar berubah
+  // menjadi alat untuk memastikan siapa saja peserta pelatihan.
+  const page = await (await fetch(base + "/forgot-password")).text();
+  assert.match(page, /sama untuk email yang terdaftar maupun tidak/);
+});
+
+await check("login offers a route out for a forgotten password", async () => {
+  assert.match(await (await fetch(base + "/login")).text(), /forgot-password/);
+});
+
+/* ---------------------------------------------------------------------------
+   Berkas privat, penomoran halaman, dan pemberitahuan
+   --------------------------------------------------------------------------- */
+
+const ROSTER = "/admin/training/training-isms-sept/participants";
+
+await check("a private file link is refused before it is signed", async () => {
+  // Alamat rutenya tetap dan dapat ditebak; tautan bertanda tangannya tidak.
+  // Yang menentukan adalah pemeriksaan wewenang pada setiap permintaan.
+  const r = await fetch(base + "/api/files/resource/resource-sept-template", {
+    redirect: "manual",
+  });
+  assert.ok(r.status !== 200, "berkas terkirim tanpa sesi");
+  assert.ok(
+    !(r.headers.get("location") ?? "").includes("/storage/v1/"),
+    "tautan penyimpanan diberikan kepada anonim",
+  );
+});
+
+await check("an unknown file kind is refused", async () => {
+  const r = await admin("/api/files/rahasia/apa-saja", { redirect: "manual" });
+  assert.equal(r.status, 404);
+});
+
+await check(
+  "a participant cannot fetch another participant's file",
+  async () => {
+    const r = await participant("/api/files/submission/tidak-ada-milik-saya", {
+      redirect: "manual",
+    });
+    assert.equal(r.status, 404);
+  },
+);
+
+await check("the participant roster is paged, not loaded whole", async () => {
+  // Teks yang disisipkan React terpecah di dalam muatan aliran, jadi yang
+  // diperiksa adalah potongan harfiahnya, bukan kalimat utuhnya.
+  const all = await (await admin(ROSTER)).text();
+  assert.match(all, /Menampilkan/, "penomoran halaman tidak muncul");
+});
+
+await check("roster search filters in the database", async () => {
+  // Kalau penyaringan terjadi di peramban, nama yang tidak cocok tetap ikut
+  // terkirim — dan daftar peserta satu kelas memang bukan hak setiap pembaca.
+  const found = await (await admin(`${ROSTER}?q=Ahmad`)).text();
+  assert.match(found, /Ahmad Fauzi/);
+  assert.ok(!found.includes("Dewi Lestari"), "baris tak cocok ikut terkirim");
+
+  const none = await (await admin(`${ROSTER}?q=zzzzzzzz`)).text();
+  assert.ok(!none.includes("Ahmad Fauzi"));
+  assert.match(none, /Tidak ada peserta yang cocok/);
+});
+
+await check(
+  "a page beyond the last one says so, not 'no participants'",
+  async () => {
+    const text = await (await admin(`${ROSTER}?page=99`)).text();
+    assert.ok(!text.includes("Ahmad Fauzi"));
+    assert.match(text, /Halaman ini kosong/);
+    assert.ok(
+      !text.includes("Belum ada peserta"),
+      "halaman terlewat terbaca sebagai kelas tanpa peserta",
+    );
+  },
+);
+
+await check("every roster-shaped tab filters by participant", async () => {
+  for (const tab of ["attendance", "assessments", "certificates"]) {
+    const text = await (
+      await admin(`/admin/training/training-isms-sept/${tab}?q=Ahmad`)
+    ).text();
+    assert.match(text, /Ahmad Fauzi/, `${tab} kehilangan peserta yang dicari`);
+    assert.ok(!text.includes("Dewi Lestari"), `${tab} tidak menyaring`);
+  }
+});
+
+await check(
+  "the notification bell is present for every workspace",
+  async () => {
+    for (const [session, path] of [
+      [participant, "/dashboard"],
+      [admin, "/admin"],
+    ]) {
+      const text = await (await session(path)).text();
+      assert.match(text, /Pemberitahuan/, `bel tidak ada pada ${path}`);
+    }
+  },
+);
 
 console.log(`${count} integration checks passed.`);

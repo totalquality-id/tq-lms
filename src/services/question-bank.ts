@@ -3,12 +3,15 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { applyRules, parseRules, topicCounts } from "@/lib/question-selection";
 import {
   assessmentSchema,
   parseOptions,
   questionSchema,
+  selectionRulesSchema,
 } from "@/schemas/assessment";
 import { requireAdmin, requireBatchStaff } from "./access";
+import { notifyParticipants } from "./notification";
 
 /**
  * Menyimpan satu butir soal beserta pilihannya. Pilihan ditulis ulang setiap
@@ -113,8 +116,10 @@ export async function saveAssessment(
     showResult: data.showResult,
     showAnswers: data.showAnswers,
     published: data.published,
+    selection: data.selection,
   };
 
+  let announce = data.published;
   if (id) {
     const existing = await db.assessment.findFirstOrThrow({
       where: { id, batchId, deletedAt: null },
@@ -126,6 +131,9 @@ export async function saveAssessment(
       throw new Error(
         "Jenis penilaian tidak dapat diubah setelah ada percobaan peserta.",
       );
+    // Hanya peralihan draft menjadi terbit yang dikabarkan; menyunting
+    // penilaian yang sudah terbit bukan kabar baru.
+    announce = data.published && !existing.published;
     await db.assessment.update({ where: { id }, data: values });
   } else {
     await db.assessment.create({ data: { ...values, batchId } });
@@ -139,6 +147,13 @@ export async function saveAssessment(
       entityId: id ?? batchId,
     },
   });
+
+  if (announce)
+    await notifyParticipants(batchId, {
+      title: "Penilaian dibuka",
+      message: `${data.title} sudah dapat Anda kerjakan.`,
+      href: `/my-training/${batchId}/assessment`,
+    });
 }
 
 export async function archiveAssessment(batchId: string, id: string) {
@@ -158,16 +173,21 @@ export async function archiveAssessment(batchId: string, id: string) {
 }
 
 /**
- * Menetapkan daftar soal yang dipakai satu penilaian. Daftar kosong berarti
- * soal diambil acak dari bank soal course — aturan ini dibaca kembali saat
- * percobaan dimulai, bukan disimpan sebagai salinan di sini.
+ * Menetapkan daftar soal yang dipakai satu penilaian, pada urutan yang
+ * diberikan, lalu memindahkan modenya ke MANUAL.
+ *
+ * Yang disimpan hanyalah rujukan ke soal. Teks dan kunci jawabannya baru
+ * dibekukan ketika percobaan dimulai, sehingga menyunting soal masih
+ * memperbaiki penilaian yang belum dikerjakan.
  */
 export async function setAssessmentQuestions(
   batchId: string,
   assessmentId: string,
   questionIds: string[],
 ) {
-  await requireBatchStaff(batchId);
+  const { user } = await requireBatchStaff(batchId);
+  if (questionIds.length === 0)
+    throw new Error("Pilih setidaknya satu soal untuk penilaian ini.");
 
   await db.$transaction(async (tx) => {
     const assessment = await tx.assessment.findFirstOrThrow({
@@ -193,10 +213,120 @@ export async function setAssessmentQuestions(
         questionId,
         position: index + 1,
       }));
-    if (rows.length)
-      await tx.assessmentQuestion.createMany({ data: rows });
+    if (rows.length === 0)
+      throw new Error(
+        "Soal yang dipilih tidak ada pada bank soal course training ini.",
+      );
+    await tx.assessmentQuestion.createMany({ data: rows });
+
+    // Modenya ikut berpindah: daftar manual yang tersimpan tetapi tidak dipakai
+    // adalah persis kebingungan yang ingin dihindari enum SelectionMode.
+    await tx.assessment.update({
+      where: { id: assessmentId },
+      data: { selection: "MANUAL" },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "SET_ASSESSMENT_QUESTIONS",
+        entity: "assessment",
+        entityId: assessmentId,
+      },
+    });
   });
 }
+
+/**
+ * Menyimpan aturan per topik, setelah memastikan bank soal sanggup memenuhinya.
+ *
+ * Kekurangan soal ditolak di sini, bukan dibiarkan muncul saat peserta menekan
+ * "mulai": trainer yang sedang menyusun penilaian dapat langsung memperbaikinya,
+ * sedangkan peserta di depan layar tidak bisa.
+ */
+export async function setSelectionRules(
+  batchId: string,
+  assessmentId: string,
+  input: Record<string, unknown>,
+) {
+  const { user } = await requireBatchStaff(batchId);
+  const rules = selectionRulesSchema.parse(input);
+
+  const assessment = await db.assessment.findFirstOrThrow({
+    where: { id: assessmentId, batchId, deletedAt: null },
+    include: { batch: { select: { courseId: true } } },
+  });
+
+  const bank = await db.question.findMany({
+    where: { courseId: assessment.batch.courseId, deletedAt: null },
+    select: { id: true, topic: true },
+  });
+
+  const short = applyRules(rules, bank).outcomes.filter(
+    (outcome) => outcome.taken < outcome.requested,
+  );
+  if (short.length)
+    throw new Error(
+      `Bank soal belum cukup: ${short
+        .map(
+          (outcome) =>
+            `${outcome.topic} tersedia ${outcome.taken} dari ${outcome.requested}`,
+        )
+        .join("; ")}.`,
+    );
+
+  await db.assessment.update({
+    where: { id: assessmentId },
+    data: {
+      selection: "RULES",
+      selectionRules: rules.filter((rule) => rule.count > 0),
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      actorId: user.id,
+      action: "SET_SELECTION_RULES",
+      entity: "assessment",
+      entityId: assessmentId,
+    },
+  });
+}
+
+/** Topik pada bank soal course sebuah training, beserta jumlah soalnya. */
+export async function courseTopics(batchId: string) {
+  const batch = await db.trainingBatch.findUniqueOrThrow({
+    where: { id: batchId },
+    select: { courseId: true },
+  });
+  const bank = await db.question.findMany({
+    where: { courseId: batch.courseId, deletedAt: null },
+    select: { id: true, topic: true },
+  });
+  return topicCounts(bank);
+}
+
+/** Bank soal course sebuah training, untuk formulir pemilihan manual. */
+export async function courseQuestions(batchId: string) {
+  const batch = await db.trainingBatch.findUniqueOrThrow({
+    where: { id: batchId },
+    select: { courseId: true },
+  });
+  return db.question.findMany({
+    where: { courseId: batch.courseId, deletedAt: null },
+    select: {
+      id: true,
+      topic: true,
+      text: true,
+      type: true,
+      difficulty: true,
+      points: true,
+    },
+    orderBy: [{ topic: "asc" }, { text: "asc" }],
+  });
+}
+
+export { parseRules };
 
 export type QuestionFilters = {
   q?: string;
@@ -205,7 +335,9 @@ export type QuestionFilters = {
   difficulty?: string;
 };
 
-export function questionWhere(filters: QuestionFilters): Prisma.QuestionWhereInput {
+export function questionWhere(
+  filters: QuestionFilters,
+): Prisma.QuestionWhereInput {
   return {
     deletedAt: null,
     ...(filters.courseId ? { courseId: filters.courseId } : {}),

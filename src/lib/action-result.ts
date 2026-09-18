@@ -25,7 +25,8 @@ export function failure(error: unknown): FormState {
     if (error.code === "P2025")
       return { error: "Data tidak ditemukan atau sudah diarsipkan." };
     return {
-      error: "Data belum dapat disimpan. Periksa relasi data lalu coba kembali.",
+      error:
+        "Data belum dapat disimpan. Periksa relasi data lalu coba kembali.",
     };
   }
 

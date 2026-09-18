@@ -42,6 +42,7 @@ export function assessmentFields(data?: {
   showResult: boolean;
   showAnswers: boolean;
   published: boolean;
+  selection: string;
 }): FieldSpec[] {
   return [
     {
@@ -85,13 +86,24 @@ export function assessmentFields(data?: {
       defaultValue: data?.maxAttempts ?? 1,
     },
     {
+      name: "selection",
+      label: "Sumber soal",
+      defaultValue: data?.selection ?? "ALL",
+      options: [
+        { value: "ALL", label: "Seluruh bank soal course" },
+        { value: "MANUAL", label: "Pilih soal sendiri" },
+        { value: "RULES", label: "Sejumlah soal per topik" },
+      ],
+      help: "Daftar soal dan aturan per topik diatur setelah penilaian tersimpan.",
+    },
+    {
       name: "questionLimit",
       label: "Jumlah soal",
       type: "number",
       min: 0,
       max: 200,
       defaultValue: data?.questionLimit ?? 0,
-      help: "Isi 0 untuk memakai seluruh soal yang tersedia.",
+      help: "Hanya berlaku untuk sumber “Seluruh bank soal”. Isi 0 untuk memakai semuanya.",
     },
     {
       name: "startsAt",
@@ -216,17 +228,21 @@ export function resourceFields(): FieldSpec[] {
   ];
 }
 
-export function reviewFields(maxScore: number, current?: {
-  score: number | null;
-  feedback: string | null;
-  status: string;
-}): FieldSpec[] {
+export function reviewFields(
+  maxScore: number,
+  current?: {
+    score: number | null;
+    feedback: string | null;
+    status: string;
+  },
+): FieldSpec[] {
   return [
     {
       name: "status",
       label: "Hasil pemeriksaan",
       required: true,
-      defaultValue: current?.status === "SUBMITTED" ? "REVIEWED" : current?.status,
+      defaultValue:
+        current?.status === "SUBMITTED" ? "REVIEWED" : current?.status,
       options: [
         { value: "REVIEWED", label: "Dinilai" },
         { value: "COMPLETED", label: "Selesai" },

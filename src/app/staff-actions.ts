@@ -22,6 +22,7 @@ import {
   saveAssessment,
   saveQuestion,
   setAssessmentQuestions,
+  setSelectionRules,
 } from "@/services/question-bank";
 
 function entries(form: FormData) {
@@ -142,6 +143,25 @@ export async function assessmentQuestionsAction(
     revalidatePath(`/trainer/training/${batchId}`, "layout");
     revalidatePath(`/admin/training/${batchId}`, "layout");
     return { success: "Daftar soal diperbarui." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function selectionRulesAction(
+  batchId: string,
+  assessmentId: string,
+  _state: FormState,
+  form: FormData,
+): Promise<FormState> {
+  try {
+    await setSelectionRules(batchId, assessmentId, {
+      topic: form.getAll("topic").map((value) => String(value)),
+      count: form.getAll("count").map((value) => String(value)),
+    });
+    revalidatePath(`/trainer/training/${batchId}`, "layout");
+    revalidatePath(`/admin/training/${batchId}`, "layout");
+    return { success: "Aturan pemilihan soal tersimpan." };
   } catch (error) {
     return failure(error);
   }

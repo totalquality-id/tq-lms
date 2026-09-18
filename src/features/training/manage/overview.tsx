@@ -13,10 +13,10 @@ import { EntityForm } from "@/features/management/entity-form";
 import { batchFields } from "@/features/management/fields";
 import { db } from "@/lib/db";
 import { dateRange, labels, minutes } from "@/lib/utils";
-import { accessibleBatch } from "@/services/access";
+import { batchOverview } from "@/services/batch";
 
 export async function ManageOverview({ id }: { id: string }) {
-  const { batch, admin } = await accessibleBatch(id);
+  const { batch, admin, issued } = await batchOverview(id);
 
   const [trainers, courses, organizations] = admin
     ? await Promise.all([
@@ -38,12 +38,6 @@ export async function ManageOverview({ id }: { id: string }) {
       ])
     : [[], [], []];
 
-  const enrolled = batch.enrollments.filter(
-    (enrollment) => enrollment.status !== "CANCELLED",
-  );
-  const issued = enrolled.filter(
-    (enrollment) => enrollment.certificate?.status === "ISSUED",
-  ).length;
   const lessonCount = batch.course.modules.reduce(
     (total, courseModule) => total + courseModule.lessons.length,
     0,
@@ -54,11 +48,11 @@ export async function ManageOverview({ id }: { id: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Peserta terdaftar"
-          value={enrolled.length}
+          value={batch._count.enrollments}
           hint={`Kapasitas ${batch.capacity}`}
         />
-        <StatCard label="Penilaian" value={batch.assessments.length} />
-        <StatCard label="Tugas" value={batch.assignments.length} />
+        <StatCard label="Penilaian" value={batch._count.assessments} />
+        <StatCard label="Tugas" value={batch._count.assignments} />
         <StatCard label="Sertifikat terbit" value={issued} />
       </div>
 

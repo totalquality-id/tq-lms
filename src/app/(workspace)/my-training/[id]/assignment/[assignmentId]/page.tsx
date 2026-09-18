@@ -5,7 +5,9 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Note } from "@/components/ui/field";
 import { AssignmentForm } from "@/features/learning/assignment-form";
+import { fileNameOf } from "@/lib/upload";
 import { dateTime } from "@/lib/utils";
+import { ACCEPTED_EXTENSIONS, storageConfigured } from "@/services/file";
 import { myEnrollment } from "@/services/learning";
 
 export default async function AssignmentPage({
@@ -54,17 +56,29 @@ export default async function AssignmentPage({
         <Card>
           <CardHeader title="Pengumpulan Anda" />
           <CardBody className="space-y-3 text-sm">
-            <p>
-              <span className="text-ink-500">Tautan: </span>
-              <a
-                href={submission.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="break-all text-brand-600 hover:underline"
-              >
-                {submission.link}
-              </a>
-            </p>
+            {submission.storageKey ? (
+              <p>
+                <span className="text-ink-500">Berkas: </span>
+                <a
+                  href={`/api/files/submission/${submission.id}`}
+                  className="break-all text-brand-600 hover:underline"
+                >
+                  {fileNameOf(submission.storageKey)}
+                </a>
+              </p>
+            ) : (
+              <p>
+                <span className="text-ink-500">Tautan: </span>
+                <a
+                  href={submission.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all text-brand-600 hover:underline"
+                >
+                  {submission.link}
+                </a>
+              </p>
+            )}
             {submission.notes ? (
               <p className="whitespace-pre-line text-ink-700">
                 <span className="text-ink-500">Catatan: </span>
@@ -109,6 +123,9 @@ export default async function AssignmentPage({
               link={submission?.link ?? ""}
               notes={submission?.notes ?? ""}
               submitted={Boolean(submission)}
+              uploads={storageConfigured()}
+              accept={ACCEPTED_EXTENSIONS}
+              maxBytes={assignment.maxBytes}
             />
           </CardBody>
         </Card>

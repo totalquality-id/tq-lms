@@ -8,9 +8,13 @@ import {
   EVALUATION_TEMPLATE,
   type EvaluationQuestion,
 } from "@/lib/evaluation-template";
-import { calendarDate, dateInput } from "@/lib/utils";
+import { removeObject } from "@/lib/supabase-storage";
+import { RESOURCE_MAX_BYTES, fileNameOf, mimeOf } from "@/lib/upload";
+import { calendarDate, dateInput, dateTime } from "@/lib/utils";
 import { currentUser, requireBatchStaff } from "./access";
+import { confirmUpload } from "./file";
 import { myEnrollment } from "./learning";
+import { notifyBatchStaff, notifyParticipants, notify } from "./notification";
 
 export { EVALUATION_TEMPLATE };
 export type { EvaluationQuestion };
@@ -68,7 +72,11 @@ export async function markAttendance(
 export const assignmentSchema = z
   .object({
     title: z.string().trim().min(2).max(200),
-    instructions: z.string().trim().min(5, "Tuliskan instruksi tugas.").max(5000),
+    instructions: z
+      .string()
+      .trim()
+      .min(5, "Tuliskan instruksi tugas.")
+      .max(5000),
     dueAt: z.string().min(1, "Isi batas waktu pengumpulan."),
     maxScore: z.coerce.number().int().min(1).max(1000),
     required: z.enum(["true", "false"]).transform((value) => value === "true"),
@@ -95,10 +103,14 @@ export async function saveAssignment(
     published: data.published,
   };
 
+  let announce = data.published;
   if (id) {
-    await db.assignment.findFirstOrThrow({
+    const existing = await db.assignment.findFirstOrThrow({
       where: { id, batchId, deletedAt: null },
     });
+    // Hanya peralihan draft menjadi terbit yang diumumkan. Menyunting judul
+    // tugas yang sudah terbit bukan kabar baru bagi siapa pun.
+    announce = data.published && !existing.published;
     await db.assignment.update({ where: { id }, data: values });
   } else {
     await db.assignment.create({
@@ -114,6 +126,13 @@ export async function saveAssignment(
       entityId: id ?? batchId,
     },
   });
+
+  if (announce)
+    await notifyParticipants(batchId, {
+      title: "Tugas baru",
+      message: `${data.title} dibuka, batas waktu ${dateTime(data.dueAt)}.`,
+      href: `/my-training/${batchId}/assignment`,
+    });
 }
 
 export async function archiveAssignment(batchId: string, id: string) {
@@ -132,17 +151,32 @@ export async function archiveAssignment(batchId: string, id: string) {
   });
 }
 
-const submissionSchema = z.object({
-  link: z
-    .url("Gunakan tautan HTTP atau HTTPS.")
-    .refine((value) => /^https?:\/\//.test(value), "Gunakan tautan HTTP atau HTTPS."),
-  notes: z.string().trim().max(2000).optional().default(""),
-});
+/**
+ * Satu pengumpulan adalah berkas yang diunggah atau sebuah tautan, tidak
+ * keduanya sekaligus: dua rujukan pada satu tugas hanya menimbulkan pertanyaan
+ * mana yang dinilai trainer.
+ */
+const submissionSchema = z
+  .object({
+    link: z.string().trim().max(2000).optional().default(""),
+    storageKey: z.string().trim().max(500).optional().default(""),
+    notes: z.string().trim().max(2000).optional().default(""),
+  })
+  .refine((value) => Boolean(value.link) !== Boolean(value.storageKey), {
+    path: ["link"],
+    message: "Unggah satu berkas atau isi satu tautan berkas.",
+  })
+  .refine((value) => !value.link || /^https?:\/\/\S+$/.test(value.link), {
+    path: ["link"],
+    message: "Gunakan tautan HTTP atau HTTPS.",
+  });
 
 /**
- * Pengumpulan tugas oleh peserta. Berkas dirujuk sebagai tautan karena
- * penyimpanan privat belum diaktifkan; kolom storageKey sudah tersedia
- * sehingga unggahan langsung dapat ditambahkan tanpa mengubah alur ini.
+ * Pengumpulan tugas oleh peserta, berupa berkas yang diunggah ke penyimpanan
+ * privat atau tautan ke drive perusahaan. Tautan tetap diterima karena tidak
+ * setiap kantor mengizinkan berkasnya berpindah tempat, dan karena
+ * penyimpanan yang belum dikonfigurasi tidak boleh menutup satu-satunya cara
+ * peserta menyerahkan pekerjaannya.
  */
 export async function submitAssignment(
   batchId: string,
@@ -164,6 +198,13 @@ export async function submitAssignment(
   if (existing && existing.status === "COMPLETED")
     throw new Error("Tugas ini sudah dinyatakan selesai.");
 
+  if (data.storageKey)
+    await confirmUpload(
+      data.storageKey,
+      assignment.maxBytes,
+      `batch/${batchId}/assignment/${assignmentId}/${enrollment.id}/`,
+    );
+
   await db.assignmentSubmission.upsert({
     where: {
       assignmentId_enrollmentId: { assignmentId, enrollmentId: enrollment.id },
@@ -172,10 +213,12 @@ export async function submitAssignment(
       assignmentId,
       enrollmentId: enrollment.id,
       link: data.link,
+      storageKey: data.storageKey || null,
       notes: data.notes,
     },
     update: {
       link: data.link,
+      storageKey: data.storageKey || null,
       notes: data.notes,
       status: "SUBMITTED",
       submittedAt: new Date(),
@@ -184,6 +227,16 @@ export async function submitAssignment(
       reviewedBy: null,
       reviewedAt: null,
     },
+  });
+
+  // Berkas lama tidak dirujuk baris mana pun setelah penggantian ini.
+  if (existing?.storageKey && existing.storageKey !== data.storageKey)
+    await removeObject(existing.storageKey);
+
+  await notifyBatchStaff(batchId, {
+    title: "Tugas dikumpulkan",
+    message: `${enrollment.participant.name} mengumpulkan ${assignment.title}.`,
+    href: `/trainer/training/${batchId}/assignments`,
   });
 }
 
@@ -203,7 +256,7 @@ export async function reviewSubmission(
 
   const submission = await db.assignmentSubmission.findFirstOrThrow({
     where: { id: submissionId, assignment: { batchId } },
-    include: { assignment: true },
+    include: { assignment: true, enrollment: true },
   });
   if (data.score !== undefined && data.score > submission.assignment.maxScore)
     throw new Error(
@@ -219,6 +272,22 @@ export async function reviewSubmission(
       reviewedBy: user.id,
       reviewedAt: new Date(),
     },
+  });
+
+  // Hasil pemeriksaan dikirim sebagai surel juga: peserta yang diminta merevisi
+  // perlu tahu sebelum batas waktunya lewat, dan ia belum tentu membuka
+  // aplikasi ini setiap hari.
+  await notify(submission.enrollment.participantId, {
+    title:
+      data.status === "REVISION_REQUIRED"
+        ? "Tugas perlu direvisi"
+        : "Tugas sudah dinilai",
+    message:
+      data.status === "REVISION_REQUIRED"
+        ? `${submission.assignment.title} perlu Anda perbaiki dan kumpulkan kembali.`
+        : `${submission.assignment.title} telah diperiksa trainer.`,
+    href: `/my-training/${batchId}/assignment/${submission.assignmentId}`,
+    email: true,
   });
 }
 
@@ -269,8 +338,7 @@ export async function submitEvaluation(
   if (enrollment.evaluations.length)
     throw new Error("Anda sudah mengisi evaluasi untuk training ini.");
 
-  const questions =
-    evaluation.questions as unknown as EvaluationQuestion[];
+  const questions = evaluation.questions as unknown as EvaluationQuestion[];
   const answers: Record<string, string | number> = {};
 
   for (const question of questions) {
@@ -281,7 +349,9 @@ export async function submitEvaluation(
         throw new Error("Beri penilaian 1 sampai 5 untuk setiap pernyataan.");
       answers[question.id] = value;
     } else {
-      answers[question.id] = String(raw ?? "").trim().slice(0, 2000);
+      answers[question.id] = String(raw ?? "")
+        .trim()
+        .slice(0, 2000);
     }
   }
 
@@ -361,7 +431,10 @@ export const resourceSchema = z.object({
   description: z.string().trim().max(1000).optional().default(""),
   url: z
     .url("Gunakan tautan HTTP atau HTTPS.")
-    .refine((value) => /^https?:\/\//.test(value), "Gunakan tautan HTTP atau HTTPS."),
+    .refine(
+      (value) => /^https?:\/\//.test(value),
+      "Gunakan tautan HTTP atau HTTPS.",
+    ),
 });
 
 export async function saveResource(
@@ -372,6 +445,49 @@ export async function saveResource(
   const data = resourceSchema.parse(input);
   await db.trainingResource.create({
     data: { ...data, batchId, createdBy: user.id },
+  });
+}
+
+const uploadedResourceSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(1000).optional().default(""),
+  storageKey: z.string().trim().min(1).max(500),
+});
+
+/**
+ * Materi yang berkasnya diunggah ke penyimpanan privat. `url` dikosongkan:
+ * berkas ini tidak punya alamat tetap yang boleh dibagikan — tautannya dibuat
+ * per permintaan, setelah wewenang pembacanya diperiksa.
+ */
+export async function saveUploadedResource(
+  batchId: string,
+  input: Record<string, unknown>,
+) {
+  const { user } = await requireBatchStaff(batchId);
+  const data = uploadedResourceSchema.parse(input);
+  const info = await confirmUpload(
+    data.storageKey,
+    RESOURCE_MAX_BYTES,
+    `batch/${batchId}/resource/`,
+  );
+
+  await db.trainingResource.create({
+    data: {
+      batchId,
+      title: data.title,
+      description: data.description,
+      url: "",
+      storageKey: data.storageKey,
+      mimeType: mimeOf(fileNameOf(data.storageKey)) || info.mimeType,
+      size: info.size,
+      createdBy: user.id,
+    },
+  });
+
+  await notifyParticipants(batchId, {
+    title: "Materi baru dibagikan",
+    message: `${data.title} tersedia pada halaman materi training Anda.`,
+    href: `/my-training/${batchId}/resources`,
   });
 }
 

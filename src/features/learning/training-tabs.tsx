@@ -6,11 +6,7 @@ import type { EnrollmentDetail } from "@/services/learning";
  * ditampilkan: halaman kosong yang selalu ada hanya membuat pembaca menebak
  * apakah sesuatu belum dibuat atau memang tidak berlaku.
  */
-export function TrainingTabs({
-  enrollment,
-}: {
-  enrollment: EnrollmentDetail;
-}) {
+export function TrainingTabs({ enrollment }: { enrollment: EnrollmentDetail }) {
   const root = `/my-training/${enrollment.batch.id}`;
   const { batch } = enrollment;
 

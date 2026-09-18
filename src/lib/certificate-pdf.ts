@@ -79,10 +79,22 @@ export async function renderCertificatePdf(
   center("Certificate of Training", HEIGHT - 148, 11, italic, MUTED);
 
   center("Diberikan kepada", HEIGHT - 196, 11, regular, MUTED);
-  center(fit(snapshot.participant, bold, 28, WIDTH - 200), HEIGHT - 232, 28, bold, BRAND);
+  center(
+    fit(snapshot.participant, bold, 28, WIDTH - 200),
+    HEIGHT - 232,
+    28,
+    bold,
+    BRAND,
+  );
 
   if (snapshot.organization)
-    center(fit(snapshot.organization, regular, 12, WIDTH - 200), HEIGHT - 254, 12, regular, MUTED);
+    center(
+      fit(snapshot.organization, regular, 12, WIDTH - 200),
+      HEIGHT - 254,
+      12,
+      regular,
+      MUTED,
+    );
 
   center(
     "atas keikutsertaan dan kelulusan pada pelatihan",
@@ -91,7 +103,13 @@ export async function renderCertificatePdf(
     regular,
     MUTED,
   );
-  center(fit(snapshot.course, bold, 17, WIDTH - 160), HEIGHT - 318, 17, bold, INK);
+  center(
+    fit(snapshot.course, bold, 17, WIDTH - 160),
+    HEIGHT - 318,
+    17,
+    bold,
+    INK,
+  );
   center(
     `${certificatePeriod(snapshot)}  ·  ${snapshot.durationHours} jam pelatihan`,
     HEIGHT - 340,
@@ -177,7 +195,10 @@ function fit(
 ) {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
   let value = text;
-  while (value.length > 4 && font.widthOfTextAtSize(`${value}…`, size) > maxWidth)
+  while (
+    value.length > 4 &&
+    font.widthOfTextAtSize(`${value}…`, size) > maxWidth
+  )
     value = value.slice(0, -1);
   return `${value}…`;
 }

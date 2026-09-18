@@ -113,7 +113,10 @@ test("short answers ignore case, spacing, and accept alternatives", () => {
 });
 
 test("essays are left for a human to grade", () => {
-  assert.equal(gradeAnswer(question({ type: "ESSAY", options: [] }), "…"), null);
+  assert.equal(
+    gradeAnswer(question({ type: "ESSAY", options: [] }), "…"),
+    null,
+  );
 });
 
 /* -------------------------------------------------------------------------
@@ -123,7 +126,11 @@ test("essays are left for a human to grade", () => {
 type ProgressFixture = {
   sequential?: boolean;
   completedLessons?: string[];
-  attempts?: { assessmentId: string; submittedAt: Date | null; score: number | null }[];
+  attempts?: {
+    assessmentId: string;
+    submittedAt: Date | null;
+    score: number | null;
+  }[];
 };
 
 function enrollment(fixture: ProgressFixture = {}): ProgressInput {
@@ -185,9 +192,7 @@ test("the final exam counts as done only once it is passed", () => {
   const failed = buildProgress(
     enrollment({
       completedLessons: ["l1", "l2"],
-      attempts: [
-        { assessmentId: "final", submittedAt: new Date(), score: 65 },
-      ],
+      attempts: [{ assessmentId: "final", submittedAt: new Date(), score: 65 }],
     }),
   );
   assert.equal(failed.requiredDone, 1);

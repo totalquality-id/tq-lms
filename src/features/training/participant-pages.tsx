@@ -148,7 +148,12 @@ export async function ParticipantDashboard() {
               </div>
             </dl>
             <Button asChild>
-              <Link href={currentProgress.next?.href ?? `/my-training/${current.batch.id}`}>
+              <Link
+                href={
+                  currentProgress.next?.href ??
+                  `/my-training/${current.batch.id}`
+                }
+              >
                 {currentProgress.next ? "Lanjutkan belajar" : "Buka training"}
               </Link>
             </Button>

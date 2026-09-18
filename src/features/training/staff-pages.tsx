@@ -19,7 +19,9 @@ export async function TrainerDashboard() {
 
   const [active, upcoming, completed, running, submissions, essays] =
     await Promise.all([
-      db.trainingBatch.count({ where: { AND: [scope, { status: "ONGOING" }] } }),
+      db.trainingBatch.count({
+        where: { AND: [scope, { status: "ONGOING" }] },
+      }),
       db.trainingBatch.count({ where: { AND: [scope, { status: "OPEN" }] } }),
       db.trainingBatch.count({
         where: { AND: [scope, { status: "COMPLETED" }] },

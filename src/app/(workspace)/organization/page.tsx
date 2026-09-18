@@ -52,9 +52,7 @@ export default async function OrganizationDashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard perusahaan"
-        description={
-          organizations.join(", ") || "Organisasi belum ditetapkan."
-        }
+        description={organizations.join(", ") || "Organisasi belum ditetapkan."}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

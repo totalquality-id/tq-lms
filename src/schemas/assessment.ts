@@ -1,4 +1,4 @@
-import { AssessmentType, QuestionType } from "@prisma/client";
+import { AssessmentType, QuestionType, SelectionMode } from "@prisma/client";
 import { z } from "zod";
 
 export const DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
@@ -15,7 +15,11 @@ export const questionSchema = z
     topic: z.string().trim().min(2, "Isi topik minimal 2 karakter.").max(200),
     difficulty: z.enum(DIFFICULTIES),
     type: z.enum(QuestionType),
-    text: z.string().trim().min(5, "Tuliskan pertanyaan minimal 5 karakter.").max(5000),
+    text: z
+      .string()
+      .trim()
+      .min(5, "Tuliskan pertanyaan minimal 5 karakter.")
+      .max(5000),
     points: z.coerce.number().int().min(1).max(100),
     explanation: z.string().trim().max(2000).optional().default(""),
     /**
@@ -94,19 +98,73 @@ export const assessmentSchema = z
     durationMinutes: z.coerce.number().int().min(1).max(600),
     passingGrade: z.coerce.number().int().min(0).max(100),
     maxAttempts: z.coerce.number().int().min(1).max(10),
-    questionLimit: z.coerce.number().int().min(0).max(200).optional().default(0),
+    questionLimit: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(200)
+      .optional()
+      .default(0),
     startsAt: z.string().optional().default(""),
     endsAt: z.string().optional().default(""),
-    randomizeQuestions: z.enum(["true", "false"]).transform((v) => v === "true"),
+    randomizeQuestions: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true"),
     randomizeOptions: z.enum(["true", "false"]).transform((v) => v === "true"),
     showResult: z.enum(["true", "false"]).transform((v) => v === "true"),
     showAnswers: z.enum(["true", "false"]).transform((v) => v === "true"),
     published: z.enum(["true", "false"]).transform((v) => v === "true"),
+    selection: z.enum(SelectionMode),
   })
   .refine(
-    (value) => !value.startsAt || !value.endsAt || value.endsAt > value.startsAt,
+    (value) =>
+      !value.startsAt || !value.endsAt || value.endsAt > value.startsAt,
     { path: ["endsAt"], message: "Waktu tutup harus setelah waktu buka." },
   );
+
+/**
+ * Aturan per topik dikirim sebagai pasangan `topic[]` dan `count[]` dari
+ * formulir. Topik yang jumlahnya nol berarti tidak dipakai, bukan galat —
+ * formulirnya menampilkan seluruh topik di bank soal sekaligus.
+ */
+export const selectionRulesSchema = z
+  .object({
+    topic: z.union([z.string(), z.array(z.string())]),
+    count: z.union([z.string(), z.array(z.string())]),
+  })
+  .transform(({ topic, count }) => {
+    const topics = Array.isArray(topic) ? topic : [topic];
+    const counts = Array.isArray(count) ? count : [count];
+    return topics
+      .map((value, index) => ({
+        topic: value.trim(),
+        count: Number(counts[index] ?? 0),
+      }))
+      .filter((rule) => rule.topic.length > 0);
+  })
+  .superRefine((rules, ctx) => {
+    for (const rule of rules)
+      if (!Number.isInteger(rule.count) || rule.count < 0 || rule.count > 200)
+        ctx.addIssue({
+          code: "custom",
+          path: ["count"],
+          message: `Jumlah soal untuk "${rule.topic}" harus antara 0 dan 200.`,
+        });
+
+    const total = rules.reduce((sum, rule) => sum + (rule.count || 0), 0);
+    if (total === 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["count"],
+        message: "Tentukan jumlah soal untuk setidaknya satu topik.",
+      });
+    if (total > 200)
+      ctx.addIssue({
+        code: "custom",
+        path: ["count"],
+        message: "Total soal melebihi 200.",
+      });
+  });
 
 /** Jawaban yang dikirim peserta: peta id soal ke satu nilai atau daftar nilai. */
 export const submissionSchema = z.record(z.string().max(64), answerValue);

@@ -10,7 +10,10 @@ import { canAssignRole } from "@/lib/policy";
 import { db } from "@/lib/db";
 import { initials, labels } from "@/lib/utils";
 import { requireAdmin } from "@/services/access";
+import { pendingTokens } from "@/services/account";
+import { supabaseConfigured } from "@/lib/supabase-admin";
 import { ArchiveButton, EntityForm } from "./entity-form";
+import { InviteButton } from "./invite-button";
 import { userFields } from "./fields";
 
 const COPY: Record<string, { title: string; description: string }> = {
@@ -77,6 +80,11 @@ export async function PeoplePage({
     }),
   ]);
 
+  // Undangan yang masih hidup ditandai pada barisnya, supaya administrator
+  // tahu siapa yang sudah dikirimi tautan dan belum mengaktifkan akunnya.
+  const outstanding = await pendingTokens(people.map((person) => person.id));
+  const canInvite = supabaseConfigured();
+
   return (
     <div>
       <PageHeader
@@ -138,9 +146,7 @@ export async function PeoplePage({
                           <p className="font-medium text-ink-900">
                             {person.name}
                           </p>
-                          <p className="text-xs text-ink-500">
-                            {person.email}
-                          </p>
+                          <p className="text-xs text-ink-500">{person.email}</p>
                         </div>
                       </div>
                     </Td>
@@ -164,14 +170,32 @@ export async function PeoplePage({
                       </Td>
                     )}
                     <Td>
-                      <Badge tone={person.active ? "success" : "neutral"}>
-                        {person.active ? "Aktif" : "Nonaktif"}
-                      </Badge>
+                      {!person.active ? (
+                        <Badge tone="neutral">Nonaktif</Badge>
+                      ) : person.isDemo ? (
+                        <Badge tone="neutral">Akun contoh</Badge>
+                      ) : outstanding.get(person.id) === "INVITE" ? (
+                        <Badge tone="warning">Menunggu aktivasi</Badge>
+                      ) : !person.authId ? (
+                        <Badge tone="warning">Belum diundang</Badge>
+                      ) : outstanding.get(person.id) === "RESET" ? (
+                        <Badge tone="warning">Reset tertunda</Badge>
+                      ) : (
+                        <Badge tone="success">Aktif</Badge>
+                      )}
                     </Td>
                     <Td>
                       {canAssignRole(actor.role, person.role) &&
                       person.id !== actor.id ? (
                         <div className="flex justify-end gap-1">
+                          {canInvite && !person.isDemo && person.active ? (
+                            <InviteButton
+                              userId={person.id}
+                              name={person.name}
+                              activated={Boolean(person.authId)}
+                              pending={outstanding.get(person.id)}
+                            />
+                          ) : null}
                           <EntityForm
                             entity="user"
                             id={person.id}

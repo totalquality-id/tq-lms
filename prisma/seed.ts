@@ -570,6 +570,8 @@ async function main() {
      Penilaian, tugas, materi pendukung, dan evaluasi
      --------------------------------------------------------------------- */
 
+  // Ketiga mode pemilihan soal dipakai pada seed, supaya perbedaannya dapat
+  // ditinjau tanpa harus menyusunnya sendiri lebih dulu.
   const assessments = [
     {
       id: "assessment-july-pre",
@@ -621,6 +623,41 @@ async function main() {
       },
       update: { published: true },
     });
+
+  // Ujian akhir kelas September memakai aturan per topik; pre-test-nya memakai
+  // daftar yang disusun manual. Kelas Juli dibiarkan memakai seluruh bank soal.
+  await db.assessment.update({
+    where: { id: "assessment-sept-final" },
+    data: {
+      selection: "RULES",
+      selectionRules: [
+        { topic: "Prinsip keamanan informasi", count: 2 },
+        { topic: "Klausul 4 — Konteks organisasi", count: 2 },
+        { topic: "Annex A", count: 2 },
+      ],
+    },
+  });
+
+  const manualPre = [
+    "q-isms-cia",
+    "q-isms-password",
+    "q-isms-incident",
+    "q-isms-leadership",
+  ];
+  await db.assessmentQuestion.deleteMany({
+    where: { assessmentId: "assessment-sept-pre" },
+  });
+  await db.assessmentQuestion.createMany({
+    data: manualPre.map((questionId, index) => ({
+      assessmentId: "assessment-sept-pre",
+      questionId,
+      position: index + 1,
+    })),
+  });
+  await db.assessment.update({
+    where: { id: "assessment-sept-pre" },
+    data: { selection: "MANUAL" },
+  });
 
   for (const a of [
     {

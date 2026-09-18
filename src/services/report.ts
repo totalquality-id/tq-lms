@@ -197,12 +197,7 @@ export async function buildReport(
   if (kind === "attendance")
     return {
       title: REPORT_LABEL.attendance,
-      columns: [
-        "Training",
-        "Peserta",
-        "Tanggal",
-        "Status",
-      ],
+      columns: ["Training", "Peserta", "Tanggal", "Status"],
       rows: batches.flatMap((batch) =>
         batch.enrollments.flatMap((enrollment) =>
           enrollment.attendance.map((record) => [
@@ -242,7 +237,9 @@ export async function buildReport(
                 assessment ? (labels[assessment.type] ?? assessment.type) : "—",
                 enrollment.participant.name,
                 attempt.attemptNumber,
-                attempt.score === null ? "Menunggu penilaian" : Math.round(attempt.score),
+                attempt.score === null
+                  ? "Menunggu penilaian"
+                  : Math.round(attempt.score),
                 attempt.passed === null
                   ? "—"
                   : attempt.passed
@@ -273,7 +270,9 @@ export async function buildReport(
         const values = rows.flatMap((row) =>
           Object.values(row)
             .map((value) => Number(value))
-            .filter((value) => Number.isFinite(value) && value >= 1 && value <= 5),
+            .filter(
+              (value) => Number.isFinite(value) && value >= 1 && value <= 5,
+            ),
         );
         const average = values.length
           ? values.reduce((sum, value) => sum + value, 0) / values.length

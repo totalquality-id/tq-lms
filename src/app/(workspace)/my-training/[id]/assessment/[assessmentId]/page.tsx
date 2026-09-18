@@ -69,7 +69,9 @@ export default async function AssessmentPage({
           </ul>
 
           {closed ? (
-            <Note>Training sudah ditutup, penilaian tidak dapat dikerjakan.</Note>
+            <Note>
+              Training sudah ditutup, penilaian tidak dapat dikerjakan.
+            </Note>
           ) : !window.ok ? (
             <Note>{window.reason}</Note>
           ) : running ? (
@@ -89,7 +91,9 @@ export default async function AssessmentPage({
             <StartAttempt
               batchId={id}
               assessmentId={assessmentId}
-              label={submitted.length ? "Mulai percobaan baru" : "Mulai sekarang"}
+              label={
+                submitted.length ? "Mulai percobaan baru" : "Mulai sekarang"
+              }
             />
           ) : (
             <Note>Batas percobaan untuk penilaian ini sudah tercapai.</Note>

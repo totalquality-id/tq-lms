@@ -12,15 +12,19 @@ Platform ini mendampingi satu siklus pelatihan utuh: undangan, pendaftaran, pre-
 
 **Penilaian.** Bank soal per course (pilihan tunggal, pilihan ganda, benar/salah, isian singkat, esai). Pre-test, kuis, dan ujian akhir dengan jendela waktu, batas percobaan, pengacakan soal dan pilihan, penilaian otomatis, serta antrean pemeriksaan esai untuk trainer.
 
+Sumber soal dapat dipilih per penilaian: seluruh bank soal course, daftar yang disusun trainer sendiri, atau sejumlah soal acak per topik — misalnya 2 soal Klausul 4, 2 soal Annex A. Aturan per topik ditolak saat disimpan bila bank soal belum mencukupi, bukan dibiarkan muncul ketika peserta menekan "mulai".
+
 **Operasional.** Presensi harian, tugas dengan pengumpulan dan penilaian, serta evaluasi pelatihan berikut rekap rata-rata dan masukan tertulis tanpa identitas.
 
 **Sertifikasi.** Pemeriksaan syarat kelulusan per peserta, penerbitan bernomor permanen, PDF dengan kode QR, halaman verifikasi publik, dan pencabutan bercatatan audit.
+
+**Akun dan akses.** Undangan akun sekali pakai, penyetelan kata sandi oleh pemiliknya sendiri, penyetelan ulang oleh administrator maupun lewat formulir "lupa kata sandi". Tautan berlaku sekali dan kedaluwarsa; yang tersimpan di basis data hanya hash-nya.
 
 **Rekam dan laporan.** Riwayat pelatihan peserta, dashboard dan rekam karyawan untuk PIC perusahaan, serta laporan training/peserta/presensi/penilaian/evaluasi dengan ekspor CSV.
 
 ## Yang belum tersedia
 
-Unggahan berkas privat belum diaktifkan: materi pendukung dan pengumpulan tugas memakai tautan, dengan kolom `storageKey` yang sudah disiapkan untuk Supabase Storage. Presensi QR, undangan dan notifikasi email, serta provisioning akun otomatis juga belum ada. Isi pelajaran dan soal pada seed adalah contoh dan harus diganti materi yang telah disetujui sebelum dipakai untuk pelatihan sesungguhnya.
+Pengiriman surel otomatis belum aktif: tautan undangan dan penyetelan ulang diteruskan oleh administrator dari halaman Pengguna, dan permintaan yang menunggu muncul pada daftar "Perlu ditindaklanjuti" di dashboard. Unggahan berkas privat belum diaktifkan: materi pendukung dan pengumpulan tugas memakai tautan, dengan kolom `storageKey` yang sudah disiapkan untuk Supabase Storage. Presensi QR, undangan dan notifikasi email, serta provisioning akun otomatis juga belum ada. Isi pelajaran dan soal pada seed adalah contoh dan harus diganti materi yang telah disetujui sebelum dipakai untuk pelatihan sesungguhnya.
 
 ## Menjalankan lokal
 
@@ -32,6 +36,12 @@ npm run db:local
 ```
 
 Salin `.env.example` menjadi `.env`. Isi `DATABASE_URL` dan `DIRECT_URL` dengan URL PostgreSQL dari perintah tersebut. Untuk Prisma Postgres lokal gunakan `connection_limit=1&pgbouncer=true` agar prepared statement tidak bertabrakan. Jangan menggunakan konfigurasi lokal ini untuk database produksi.
+
+Untuk mengembangkan alur undangan secara lokal, isi `SUPABASE_URL`, `SUPABASE_ANON_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY`. Basis datanya tetap lokal; hanya penyedia autentikasinya yang nyata. Tanpa ketiga nilai itu tombol undangan tidak muncul dan aplikasi mengatakan alasannya, bukan gagal diam-diam.
+
+Untuk mencoba unggah berkas, isi juga `SUPABASE_STORAGE_BUCKET` lalu jalankan `npm run storage:setup` sekali. Perintah itu membuat bucket privat bila belum ada, menolak melanjutkan bila bucket-nya publik, lalu menguji satu putaran penuh — tanda tangan, unggah, baca ukuran, tanda tangan unduhan, hapus — sehingga kekurangan wewenang pada kunci service role terlihat sekarang, bukan saat trainer pertama mencoba mengunggah materi. Tanpa bucket, tombol unggah tidak muncul dan materi maupun tugas tetap dibagikan sebagai tautan.
+
+Untuk mencoba pengiriman surel, isi `RESEND_API_KEY` dan `MAIL_FROM`. Tanpa keduanya tidak ada surel yang dikirim: tautan undangan tetap ditampilkan untuk diteruskan administrator, dan pemberitahuan hanya muncul pada bel di kepala halaman.
 
 Buat `AUTH_SECRET` acak. Untuk demo lokal saja, set `ENABLE_DEMO_AUTH=true` dan `DEMO_PASSWORD` ke nilai acak yang panjang. Demo memiliki tombol peran sehingga kata sandi tidak perlu ditampilkan. `SHADOW_DATABASE_URL` hanya dibutuhkan ketika membuat migrasi baru dengan `prisma migrate dev`.
 
@@ -71,7 +81,6 @@ npx vercel deploy --prod
 
 `.vercelignore` menahan `.env*` agar berkas rahasia lokal tidak ikut terunggah; nilai untuk produksi berasal dari Environment Variables milik proyek Vercel.
 
-
 ## Verifikasi
 
 ```powershell
@@ -91,13 +100,15 @@ Windows: hentikan `npm run dev` sebelum menjalankan build karena regenerasi Pris
 2. Isi `AUTH_SECRET`, `AUTH_URL` (origin Vercel/domain), `SUPABASE_URL`, dan `SUPABASE_ANON_KEY`. Set `ENABLE_DEMO_AUTH=false`; jangan salin `DEMO_PASSWORD`. Akun `isDemo` tidak boleh digunakan di produksi.
 3. Jalankan `npx prisma migrate deploy` melalui pipeline terkontrol. Jangan jalankan demo seed di produksi.
 4. Buat akun admin pertama di Supabase Auth dan record User yang sesuai di database dengan `authId` sama dengan UUID Supabase, `role=SUPER_ADMIN`, `active=true`, `isDemo=false`.
-5. Akun berikutnya diprovisikan melalui Supabase Auth; masukkan UUID tersebut pada formulir pengguna LMS. Password diverifikasi oleh Supabase; aplikasi tidak menyimpan password. Provisioning otomatis dan undangan email belum diaktifkan.
-6. Impor repository ke Vercel dengan framework Next.js. Build command `npm run build`. Siapkan domain, email provider, backup, monitoring, dan uji penerimaan sebelum penggunaan nyata.
+5. Akun berikutnya diundang dari halaman Pengguna: akun Supabase Auth disiapkan lebih dulu, lalu tautan sekali pakai diterbitkan. Password ditetapkan pemiliknya sendiri dan diverifikasi Supabase; aplikasi tidak pernah menyimpan password. Provisioning otomatis dari sistem HR belum diaktifkan.
+6. Isi `SUPABASE_STORAGE_BUCKET` lalu jalankan `npm run storage:setup` agar bucket berkas privat siap. Bucket wajib privat — berkas tugas dan materi kelas tidak boleh terbaca oleh siapa pun yang menebak alamatnya.
+7. Isi `RESEND_API_KEY` dan `MAIL_FROM` dengan domain pengirim yang sudah terverifikasi agar undangan, penyetelan ulang kata sandi, dan pemberitahuan penting terkirim sebagai surel.
+8. Impor repository ke Vercel dengan framework Next.js. Build command `npm run build`. Siapkan domain, backup, monitoring, dan uji penerimaan sebelum penggunaan nyata.
 
 Sertifikat diterbitkan hanya ketika syarat kelulusan terpenuhi, bernomor dari urutan yang tidak pernah dipakai ulang, dan dibekukan sebagai snapshot. Halaman verifikasi publik `/verify/<nomor>` hanya menampilkan nama, pelatihan, organisasi, tanggal, dan nomor; email, nilai, dan kehadiran tidak ditampilkan. Berkas PDF hanya dapat diunduh peserta yang bersangkutan, trainer kelas tersebut, PIC organisasinya, dan administrator.
 
 Laporan tidak tersedia untuk peserta: satu training juga memuat teman sekelasnya, sehingga ekspor akan membocorkan data orang lain. Rekam pribadi peserta ada pada halaman Riwayat pelatihan.
 
-Auth.js menggunakan cookie sesi HTTP-only dan pemeriksaan CSRF. Akses selalu diverifikasi ulang ke database; deactivation langsung mencabut akses pada permintaan berikutnya. URL materi hanya menerima http/https; materi eksternal mengikuti kontrol akses penyedianya. Supabase production auth dan Vercel deployment memerlukan konfigurasi akun nyata, dan belum diuji di proyek ini.
+Auth.js menggunakan cookie sesi HTTP-only dan pemeriksaan CSRF. Akses selalu diverifikasi ulang ke database; deactivation langsung mencabut akses pada permintaan berikutnya. URL materi hanya menerima http/https; materi eksternal mengikuti kontrol akses penyedianya. Berkas yang diunggah tersimpan pada bucket privat dan tidak punya alamat tetap: `/api/files/<jenis>/<id>` memeriksa ulang wewenang pada setiap permintaan lalu mengalihkan ke tautan bertanda tangan berumur satu menit, sehingga alamat yang terlanjur tersalin tetap melewati pemeriksaan yang sama. Supabase production auth dan Vercel deployment memerlukan konfigurasi akun nyata, dan belum diuji di proyek ini.
 
 Arsitektur, peta route, matriks RBAC, dan rencana bertahap: [docs/architecture.md](docs/architecture.md).

@@ -30,6 +30,8 @@ export default async function AdminDashboard() {
     withoutParticipants,
     pendingAssignments,
     pendingEssays,
+    resetRequests,
+    neverInvited,
   ] = await Promise.all([
     db.trainingBatch.count({ where: { deletedAt: null, status: "ONGOING" } }),
     db.trainingBatch.count({
@@ -79,9 +81,38 @@ export default async function AdminDashboard() {
     db.assessmentAttempt.count({
       where: { submittedAt: { not: null }, score: null },
     }),
+    // Permintaan penyetelan ulang menunggu administrator meneruskan tautannya.
+    // Tanpa hitungan ini, permintaan peserta tidak pernah sampai ke siapa pun:
+    // pengiriman surel belum aktif, jadi dashboard inilah kotak masuknya.
+    db.authToken.count({
+      where: {
+        purpose: "RESET",
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+        user: { active: true, deletedAt: null },
+      },
+    }),
+    db.user.count({
+      where: {
+        active: true,
+        deletedAt: null,
+        isDemo: false,
+        authId: null,
+      },
+    }),
   ]);
 
   const actions = [
+    {
+      count: resetRequests,
+      title: "Permintaan kata sandi menunggu tautan",
+      href: "/admin/users",
+    },
+    {
+      count: neverInvited,
+      title: "Akun belum diundang",
+      href: "/admin/users",
+    },
     {
       count: pendingAssignments,
       title: "Tugas menunggu penilaian",

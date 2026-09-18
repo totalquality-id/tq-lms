@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { ManageTabs } from "@/features/training/manage/tabs";
 import { dateRange } from "@/lib/utils";
-import { accessibleBatch } from "@/services/access";
+import { batchLayout } from "@/services/batch";
 
 export default async function ManageLayout({
   children,
@@ -12,7 +12,7 @@ export default async function ManageLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { batch } = await accessibleBatch(id);
+  const { batch } = await batchLayout(id);
 
   return (
     <>
@@ -27,10 +27,10 @@ export default async function ManageLayout({
         base="/admin/training"
         id={id}
         counts={{
-          participants: batch.enrollments.length,
-          assessments: batch.assessments.length,
-          assignments: batch.assignments.length,
-          resources: batch.resources.length,
+          participants: batch._count.enrollments,
+          assessments: batch._count.assessments,
+          assignments: batch._count.assignments,
+          resources: batch._count.resources,
         }}
       />
       {children}

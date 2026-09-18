@@ -1,7 +1,8 @@
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/table";
+import { fileSize } from "@/lib/upload";
 import { date } from "@/lib/utils";
 import { myEnrollment } from "@/services/learning";
 
@@ -30,9 +31,14 @@ export default async function ResourcesPage({
         {resources.map((resource) => (
           <li key={resource.id}>
             <a
-              href={resource.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={
+                resource.storageKey
+                  ? `/api/files/resource/${resource.id}`
+                  : resource.url
+              }
+              {...(resource.storageKey
+                ? {}
+                : { target: "_blank", rel: "noopener noreferrer" })}
               className="flex items-center gap-3 px-4 py-3.5 hover:bg-ink-50 sm:px-5"
             >
               <span className="min-w-0 flex-1">
@@ -41,10 +47,23 @@ export default async function ResourcesPage({
                 </span>
                 <span className="block text-xs text-ink-500">
                   {resource.description || "Dibagikan trainer"} ·{" "}
-                  {date(resource.createdAt)}
+                  {resource.storageKey
+                    ? `Berkas ${fileSize(resource.size)}`
+                    : "Tautan"}{" "}
+                  · {date(resource.createdAt)}
                 </span>
               </span>
-              <ExternalLink className="size-4 shrink-0 text-ink-400" aria-hidden />
+              {resource.storageKey ? (
+                <Download
+                  className="size-4 shrink-0 text-ink-400"
+                  aria-hidden
+                />
+              ) : (
+                <ExternalLink
+                  className="size-4 shrink-0 text-ink-400"
+                  aria-hidden
+                />
+              )}
             </a>
           </li>
         ))}
