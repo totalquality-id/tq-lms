@@ -286,9 +286,10 @@ export function questionFields(
       name: "courseId",
       label: "Course",
       required: true,
-      defaultValue: data?.courseId,
+      defaultValue:
+        data?.courseId ?? (courses.length === 1 ? courses[0].id : ""),
       options: [
-        { value: "", label: "Pilih course" },
+        ...(courses.length === 1 ? [] : [{ value: "", label: "Pilih course" }]),
         ...courses.map((course) => ({
           value: course.id,
           label: course.title,

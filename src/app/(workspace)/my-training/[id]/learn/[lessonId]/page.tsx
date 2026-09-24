@@ -1,11 +1,10 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
 
 import { Breadcrumb } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Note } from "@/components/ui/field";
+import { LessonContent } from "@/features/learning/lesson-content";
 import { LessonComplete } from "@/features/learning/lesson-complete";
 import { labels, minutes } from "@/lib/utils";
 import { buildProgress, myEnrollment } from "@/services/learning";
@@ -70,47 +69,7 @@ export default async function LessonPage({
           description={`${labels[lesson.type] ?? lesson.type} · ${minutes(lesson.duration)}`}
         />
         <CardBody className="space-y-5">
-          {lesson.content ? (
-            <div className="text-sm leading-relaxed whitespace-pre-line text-ink-700">
-              {lesson.content}
-            </div>
-          ) : null}
-
-          {lesson.resourceUrl ? (
-            lesson.type === "VIDEO" ? (
-              <div className="space-y-2">
-                <Button asChild variant="secondary" size="sm">
-                  <a
-                    href={lesson.resourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink aria-hidden />
-                    Putar video
-                  </a>
-                </Button>
-                <p className="text-xs text-ink-500">
-                  Video dibuka di penyedia aslinya. Ketentuan akses mengikuti
-                  penyedia tersebut.
-                </p>
-              </div>
-            ) : (
-              <Button asChild variant="secondary" size="sm">
-                <a
-                  href={lesson.resourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink aria-hidden />
-                  Buka materi
-                </a>
-              </Button>
-            )
-          ) : null}
-
-          {!lesson.content && !lesson.resourceUrl ? (
-            <Note>Isi pelajaran ini belum ditambahkan oleh trainer.</Note>
-          ) : null}
+          <LessonContent lesson={lesson} />
         </CardBody>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-4 py-3 sm:px-5">
           <LessonComplete

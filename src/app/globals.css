@@ -10,21 +10,17 @@
    ========================================================================== */
 
 @theme {
-  /* Keluarga biru TQ. Rona berasal dari logo (#0201FE), tetapi kepekatannya
-     diturunkan jauh: biru logo yang murni terlalu keras untuk dibaca berjam-jam
-     pada tabel dan formulir. Yang dipakai antarmuka adalah indigo yang sama
-     rononya namun lebih rendah saturasinya, sehingga tetap terasa sebagai warna
-     perusahaan tanpa memukul mata. */
-  --color-brand-50: #f3f5fb;
-  --color-brand-100: #e6e9f5;
-  --color-brand-200: #ced4ea;
-  --color-brand-300: #adb6dc;
-  --color-brand-400: #8792c7;
-  --color-brand-500: #6974b3;
-  --color-brand-600: #5461a4;
-  --color-brand-700: #454f88;
-  --color-brand-800: #3a426f;
-  --color-brand-900: #32385c;
+  /* Biru utama #173e76, dengan turunan terang untuk latar dan gelap untuk hover. */
+  --color-brand-50: #f3f5f8;
+  --color-brand-100: #e8ecf1;
+  --color-brand-200: #c5cfdd;
+  --color-brand-300: #a2b2c8;
+  --color-brand-400: #748bad;
+  --color-brand-500: #456591;
+  --color-brand-600: #173e76;
+  --color-brand-700: #143565;
+  --color-brand-800: #102b53;
+  --color-brand-900: #0d2241;
 
   --color-ink-25: #fcfcfd;
   --color-ink-50: #f6f7f9;
@@ -45,18 +41,19 @@
   --color-danger: #ab2f2a;
   --color-danger-bg: #fbeceb;
 
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans:
+    var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --radius-card: 0.5rem;
 
   /* Permukaan hampir rata: satu garis rambut ditambah bayangan yang nyaris
      tak terlihat. Kedalaman datang dari kontras latar, bukan dari bayangan. */
   --shadow-card: 0 1px 2px 0 rgb(21 26 33 / 0.04);
-  --shadow-raised: 0 1px 3px 0 rgb(21 26 33 / 0.08),
-    0 1px 2px -1px rgb(21 26 33 / 0.06);
-  --shadow-overlay: 0 12px 24px -8px rgb(21 26 33 / 0.14),
-    0 4px 8px -4px rgb(21 26 33 / 0.08);
+  --shadow-raised:
+    0 1px 3px 0 rgb(21 26 33 / 0.08), 0 1px 2px -1px rgb(21 26 33 / 0.06);
+  --shadow-overlay:
+    0 12px 24px -8px rgb(21 26 33 / 0.14), 0 4px 8px -4px rgb(21 26 33 / 0.08);
 }
 
 @layer base {
@@ -242,6 +239,42 @@
   [data-dialog-panel][data-state="closed"],
   [data-nav-panel][data-state="closed"] {
     animation: overlay-out 100ms ease-in;
+  }
+}
+
+/* Indikator halaman turun dari atas tanpa menggeser isi atau menahan klik.
+   Jeda singkat menghindari kedipan pada navigasi yang langsung selesai. */
+@keyframes page-loading-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4rem) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes page-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.page-loading-indicator {
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  animation: page-loading-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+.page-loading-ring {
+  transform-origin: 18px 18px;
+  animation: page-loading-spin 850ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-indicator,
+  .page-loading-ring {
+    animation: none;
   }
 }
 

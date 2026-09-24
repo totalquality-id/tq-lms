@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 import type { Prisma } from "@prisma/client";
 
 import { PageHeader, SectionHeader } from "@/components/layout/page-header";

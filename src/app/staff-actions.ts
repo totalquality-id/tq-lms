@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { failure } from "@/lib/action-result";
 import type { FormState } from "@/schemas/forms";
-import { gradeEssay } from "@/services/assessment";
+import { gradeEssay, previewAssessment } from "@/services/assessment";
 import { issueCertificate, revokeCertificate } from "@/services/certificate";
 import {
   archiveAssignment,
@@ -97,6 +97,17 @@ export async function reviewSubmissionAction(
 }
 
 /* -------------------------------- Penilaian -------------------------------- */
+
+export async function previewAssessmentAction(
+  batchId: string,
+  assessmentId: string,
+) {
+  try {
+    return { questions: await previewAssessment(batchId, assessmentId) };
+  } catch (error) {
+    return { error: failure(error).error ?? "Preview tidak dapat dimuat." };
+  }
+}
 
 export async function assessmentAction(
   batchId: string,
@@ -194,7 +205,10 @@ export async function questionAction(
 ): Promise<FormState> {
   try {
     await saveQuestion(id, entries(form));
+    revalidatePath("/admin/training/[id]", "layout");
+    revalidatePath("/trainer/training/[id]", "layout");
     revalidatePath("/admin/question-bank");
+    revalidatePath("/admin/question-bank/[courseId]", "page");
     return { success: "Soal tersimpan." };
   } catch (error) {
     return failure(error);
@@ -204,7 +218,10 @@ export async function questionAction(
 export async function archiveQuestionAction(id: string): Promise<FormState> {
   try {
     await archiveQuestion(id);
+    revalidatePath("/admin/training/[id]", "layout");
+    revalidatePath("/trainer/training/[id]", "layout");
     revalidatePath("/admin/question-bank");
+    revalidatePath("/admin/question-bank/[courseId]", "page");
     return { success: "Soal diarsipkan." };
   } catch (error) {
     return failure(error);

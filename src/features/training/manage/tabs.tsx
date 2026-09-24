@@ -30,6 +30,7 @@ export function ManageTabs({
           badge: counts.participants,
         },
         { href: `${root}/attendance`, label: "Presensi" },
+        ...(base === "/admin/training" ? [{ href: `${root}/questions`, label: "Bank soal" }] : []),
         {
           href: `${root}/assessments`,
           label: "Penilaian",

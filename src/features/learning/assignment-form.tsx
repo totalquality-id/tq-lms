@@ -33,6 +33,7 @@ export function AssignmentForm({
   uploads,
   accept,
   maxBytes,
+  preview = false,
 }: {
   batchId: string;
   assignmentId: string;
@@ -42,6 +43,7 @@ export function AssignmentForm({
   uploads: boolean;
   accept: string;
   maxBytes: number;
+  preview?: boolean;
 }) {
   const router = useRouter();
   const upload = useUpload();
@@ -62,6 +64,7 @@ export function AssignmentForm({
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (preview) return;
     setError(null);
     setFieldError(null);
 
@@ -203,7 +206,7 @@ export function AssignmentForm({
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || preview}>
           {upload.busy
             ? "Mengunggah…"
             : sending

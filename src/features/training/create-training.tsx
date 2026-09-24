@@ -6,7 +6,7 @@ export async function CreateTraining() {
   await requireAdmin();
   const [courses, orgs, trainers] = await Promise.all([
     db.course.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, sourceCourseId: null },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),

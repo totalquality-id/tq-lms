@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/app-nav";

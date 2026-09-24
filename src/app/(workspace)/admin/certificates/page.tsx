@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 import type { Prisma } from "@prisma/client";
 
 import { revokeCertificateAction } from "@/app/staff-actions";

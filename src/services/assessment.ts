@@ -4,13 +4,18 @@ import { notFound } from "next/navigation";
 import { Prisma, type QuestionType } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { bestScore, gradeAnswer, type SnapshotQuestion } from "@/lib/grading";
+import {
+  bestScore,
+  gradeAnswer,
+  visibleQuestions,
+  type SnapshotQuestion,
+} from "@/lib/grading";
 import {
   parseRules,
   selectQuestions,
   shuffleInPlace as shuffle,
 } from "@/lib/question-selection";
-import { currentUser } from "./access";
+import { currentUser, requireBatchStaff } from "./access";
 import { notify } from "./notification";
 
 // Penilaian objektif adalah logika murni dan tinggal di lib, agar aturannya
@@ -92,6 +97,17 @@ async function pickQuestions(
       correct: option.correct,
     })),
   }));
+}
+
+export async function previewAssessment(batchId: string, assessmentId: string) {
+  await requireBatchStaff(batchId);
+  const assessment = await db.assessment.findFirst({
+    where: { id: assessmentId, batchId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!assessment) notFound();
+  // Memakai pemilih soal peserta, tanpa membuat percobaan atau menyimpan jawaban.
+  return visibleQuestions(await pickQuestions(db, assessment.id));
 }
 
 export async function assessmentForParticipant(

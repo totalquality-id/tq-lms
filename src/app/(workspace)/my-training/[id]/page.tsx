@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { SectionHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";

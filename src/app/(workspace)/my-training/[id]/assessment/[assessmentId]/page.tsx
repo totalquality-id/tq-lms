@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { Breadcrumb } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";

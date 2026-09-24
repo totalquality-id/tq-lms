@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import type { CertificateSnapshot } from "@/services/certificate";
 import { certificatePeriod } from "@/services/certificate";
 
-const BRAND = rgb(0x2b / 255, 0x55 / 255, 0x89 / 255);
+const BRAND = rgb(0x17 / 255, 0x3e / 255, 0x76 / 255);
 const ACCENT = rgb(0xfa / 255, 0xcc / 255, 0x01 / 255);
 const INK = rgb(0x16 / 255, 0x1c / 255, 0x24 / 255);
 const MUTED = rgb(0x4c / 255, 0x58 / 255, 0x67 / 255);
@@ -156,7 +156,7 @@ export async function renderCertificatePdf(
     type: "png",
     margin: 0,
     width: 300,
-    color: { dark: "#2B5589", light: "#FFFFFF" },
+    color: { dark: "#173e76", light: "#FFFFFF" },
   });
   const qr = await pdf.embedPng(qrPng);
   page.drawImage(qr, { x: WIDTH - 168, y: 62, width: 96, height: 96 });

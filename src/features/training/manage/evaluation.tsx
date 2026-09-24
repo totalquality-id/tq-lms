@@ -5,6 +5,12 @@ import { Note } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/table";
 import { batchEvaluation } from "@/services/batch";
 import { evaluationSummary } from "@/services/operations";
+import { PreviewDialog } from "@/features/management/preview-dialog";
+import { EvaluationForm } from "@/features/learning/evaluation-form";
+import {
+  EVALUATION_TEMPLATE,
+  type EvaluationQuestion,
+} from "@/lib/evaluation-template";
 
 /** Bilah rata-rata 1–5 dengan angkanya, tanpa grafik yang perlu ditafsirkan. */
 function RatingRow({
@@ -39,6 +45,19 @@ function RatingRow({
 export async function ManageEvaluation({ id }: { id: string }) {
   const { batch } = await batchEvaluation(id);
   const summary = await evaluationSummary(id);
+  const preview = (
+    <PreviewDialog title={batch.evaluation?.title ?? "Evaluasi pelatihan"}>
+      <EvaluationForm
+        batchId={id}
+        preview
+        questions={
+          batch.evaluation
+            ? (batch.evaluation.questions as EvaluationQuestion[])
+            : EVALUATION_TEMPLATE
+        }
+      />
+    </PreviewDialog>
+  );
 
   if (!batch.evaluation)
     return (
@@ -46,6 +65,7 @@ export async function ManageEvaluation({ id }: { id: string }) {
         <CardHeader
           title="Evaluasi pelatihan"
           description="Formulir baku Total Quality: materi, trainer, penyelenggaraan, fasilitas, dan kepuasan keseluruhan."
+          action={preview}
         />
         <CardBody>
           <EmptyState
@@ -73,28 +93,31 @@ export async function ManageEvaluation({ id }: { id: string }) {
           title="Evaluasi pelatihan"
           description={`${summary?.responses ?? 0} dari ${participants} peserta mengisi (${responseRate}%)`}
           action={
-            batch.evaluation.open ? (
-              <ActionButton
-                variant="secondary"
-                size="sm"
-                action={evaluationAction.bind(null, id, false)}
-                confirm={{
-                  title: "Tutup evaluasi?",
-                  description:
-                    "Peserta yang belum mengisi tidak dapat lagi mengirim masukan. Evaluasi dapat dibuka kembali.",
-                }}
-                confirmLabel="Tutup"
-              >
-                Tutup evaluasi
-              </ActionButton>
-            ) : (
-              <ActionButton
-                size="sm"
-                action={evaluationAction.bind(null, id, true)}
-              >
-                Buka kembali
-              </ActionButton>
-            )
+            <div className="flex flex-wrap gap-2">
+              {preview}
+              {batch.evaluation.open ? (
+                <ActionButton
+                  variant="secondary"
+                  size="sm"
+                  action={evaluationAction.bind(null, id, false)}
+                  confirm={{
+                    title: "Tutup evaluasi?",
+                    description:
+                      "Peserta yang belum mengisi tidak dapat lagi mengirim masukan. Evaluasi dapat dibuka kembali.",
+                  }}
+                  confirmLabel="Tutup"
+                >
+                  Tutup evaluasi
+                </ActionButton>
+              ) : (
+                <ActionButton
+                  size="sm"
+                  action={evaluationAction.bind(null, id, true)}
+                >
+                  Buka kembali
+                </ActionButton>
+              )}
+            </div>
           }
         />
         <CardBody>

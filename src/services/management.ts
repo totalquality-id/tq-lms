@@ -5,6 +5,7 @@ import { requireAdmin } from "./access";
 import { notify } from "./notification";
 import { dateRange } from "@/lib/utils";
 import { canAssignRole } from "@/lib/policy";
+import { courseCopyData } from "@/lib/course-copy";
 import {
   organizationSchema,
   userSchema,
@@ -118,9 +119,12 @@ export async function saveEntity(
             },
           });
       } else if (entity === "course") {
-        const data = courseSchema.parse(input);
-        if (id)
-          await tx.course.findFirstOrThrow({ where: { id, deletedAt: null } });
+        const existing = id
+          ? await tx.course.findFirstOrThrow({ where: { id, deletedAt: null } })
+          : null;
+        const data = courseSchema.parse(existing?.sourceCourseId
+          ? { ...input, published: String(existing.published) }
+          : input);
         const slug =
           data.title
             .toLowerCase()
@@ -139,9 +143,10 @@ export async function saveEntity(
         entityId = record.id;
       } else if (entity === "batch") {
         const { trainerId, ...data } = batchSchema.parse(input);
-        await tx.course.findFirstOrThrow({
-          where: { id: data.courseId, deletedAt: null },
-        });
+        const old = id ? await tx.trainingBatch.findFirstOrThrow({
+          where: { id, deletedAt: null },
+          include: { _count: { select: { enrollments: true, assessments: true } } },
+        }) : null;
         if (data.organizationId)
           await tx.organization.findFirstOrThrow({
             where: { id: data.organizationId, deletedAt: null },
@@ -155,11 +160,7 @@ export async function saveEntity(
               deletedAt: null,
             },
           });
-        if (id) {
-          const old = await tx.trainingBatch.findFirstOrThrow({
-            where: { id, deletedAt: null },
-            include: { _count: { select: { enrollments: true } } },
-          });
+        if (old) {
           if (
             old._count.enrollments &&
             (old.courseId !== data.courseId ||
@@ -168,6 +169,8 @@ export async function saveEntity(
             throw new Error(
               "Course dan organisasi tidak dapat diganti setelah peserta terdaftar.",
             );
+          if (old.courseId !== data.courseId && old._count.assessments)
+            throw new Error("Course tidak dapat diganti setelah penilaian dibuat. Edit salinan course pada training ini.");
           const count = await tx.enrollment.count({
             where: {
               batchId: id,
@@ -194,6 +197,21 @@ export async function saveEntity(
           startDate: new Date(data.startDate + "T00:00:00+07:00"),
           endDate: new Date(data.endDate + "T23:59:59+07:00"),
         };
+        if (!old || old.courseId !== data.courseId) {
+          const source = await tx.course.findFirstOrThrow({
+            where: { id: data.courseId, sourceCourseId: null, deletedAt: null },
+            include: {
+              modules: { include: { lessons: true } },
+              questions: { include: { options: true } },
+            },
+          });
+          const copy = await tx.course.create({ data: courseCopyData(source, actor.id) });
+          values.courseId = copy.id;
+          if (old) await tx.course.update({
+            where: { id: old.courseId },
+            data: { deletedAt: new Date(), updatedBy: actor.id },
+          });
+        }
         const record = id
           ? await tx.trainingBatch.update({
               where: { id },

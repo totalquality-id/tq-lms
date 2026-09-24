@@ -2,7 +2,7 @@
 
 import { DropdownMenu } from "radix-ui";
 import { ChevronDown, LogOut, User as UserIcon } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 import { useRef } from "react";
 
 import { logout } from "@/app/auth-actions";

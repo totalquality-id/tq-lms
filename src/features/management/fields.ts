@@ -231,8 +231,11 @@ export function batchFields(
     },
     {
       name: "courseId",
-      label: "Course",
+      label: data ? "Course training" : "Course yang disalin",
       required: true,
+      help: data
+        ? "Pilih course induk lain hanya sebelum ada peserta atau penilaian. Materi dan soal akan disalin ulang."
+        : "Materi dan bank soal disalin ke training ini, lalu dapat diedit secara terpisah.",
       options: options(courses, "Pilih course"),
       defaultValue: data?.courseId,
     },

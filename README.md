@@ -24,54 +24,48 @@ Sumber soal dapat dipilih per penilaian: seluruh bank soal course, daftar yang d
 
 ## Yang belum tersedia
 
-Pengiriman surel otomatis belum aktif: tautan undangan dan penyetelan ulang diteruskan oleh administrator dari halaman Pengguna, dan permintaan yang menunggu muncul pada daftar "Perlu ditindaklanjuti" di dashboard. Unggahan berkas privat belum diaktifkan: materi pendukung dan pengumpulan tugas memakai tautan, dengan kolom `storageKey` yang sudah disiapkan untuk Supabase Storage. Presensi QR, undangan dan notifikasi email, serta provisioning akun otomatis juga belum ada. Isi pelajaran dan soal pada seed adalah contoh dan harus diganti materi yang telah disetujui sebelum dipakai untuk pelatihan sesungguhnya.
+Pengiriman surel otomatis belum aktif: tautan undangan dan penyetelan ulang diteruskan oleh administrator dari halaman Pengguna, dan permintaan yang menunggu muncul pada daftar "Perlu ditindaklanjuti" di dashboard. Unggahan berkas privat belum diaktifkan: materi pendukung dan pengumpulan tugas memakai tautan, dengan kolom `storageKey` yang sudah disiapkan untuk Supabase Storage. Presensi QR, undangan dan notifikasi email, serta provisioning akun otomatis juga belum ada. Materi pelajaran dan soal dibuat sendiri setelah masuk; seed tidak menyediakan data pelatihan.
+
+## Konfigurasi database dan akun
+
+Aplikasi memakai project Supabase **tq-lms** (`hdjumgxtubpruwlluahs`), skema `lms`, dengan peran Postgres `tq_lms_app`. Database, Supabase Auth, dan Storage harus berasal dari project yang sama. Project lama `totalquality-website` bukan sumber data aplikasi ini lagi.
+
+`DATABASE_URL` menggunakan transaction pooler port 6543 dengan `pgbouncer=true&connection_limit=5&schema=lms&sslmode=require`. `DIRECT_URL` menggunakan session pooler port 5432 dengan `schema=lms&sslmode=require` untuk migrasi. Host pooler tersedia di panel Connect Supabase; username memakai format `tq_lms_app.<project-ref>`.
+
+Nilai rahasia tersimpan pada `.env` lokal dan Environment Variables Vercel. `.env.supabase-secret` menyimpan salinan koneksi deployment. Berkas tersebut serta folder `.local/` diabaikan Git dan tidak diunggah ke Vercel.
 
 ## Menjalankan lokal
 
-Node.js 22+ direkomendasikan.
+Gunakan Node.js 22+. Salin `.env.example` menjadi `.env` hanya pada instalasi baru, lalu isi koneksi project dan kunci Supabase. Set `AUTH_URL=http://localhost:3000`, buat `AUTH_SECRET` acak, dan gunakan `ENABLE_DEMO_AUTH=false`.
 
 ```powershell
 npm ci
-npm run db:local
-```
-
-Salin `.env.example` menjadi `.env`. Isi `DATABASE_URL` dan `DIRECT_URL` dengan URL PostgreSQL dari perintah tersebut. Untuk Prisma Postgres lokal gunakan `connection_limit=1&pgbouncer=true` agar prepared statement tidak bertabrakan. Jangan menggunakan konfigurasi lokal ini untuk database produksi.
-
-Untuk mengembangkan alur undangan secara lokal, isi `SUPABASE_URL`, `SUPABASE_ANON_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY`. Basis datanya tetap lokal; hanya penyedia autentikasinya yang nyata. Tanpa ketiga nilai itu tombol undangan tidak muncul dan aplikasi mengatakan alasannya, bukan gagal diam-diam.
-
-Untuk mencoba unggah berkas, isi juga `SUPABASE_STORAGE_BUCKET` lalu jalankan `npm run storage:setup` sekali. Perintah itu membuat bucket privat bila belum ada, menolak melanjutkan bila bucket-nya publik, lalu menguji satu putaran penuh — tanda tangan, unggah, baca ukuran, tanda tangan unduhan, hapus — sehingga kekurangan wewenang pada kunci service role terlihat sekarang, bukan saat trainer pertama mencoba mengunggah materi. Tanpa bucket, tombol unggah tidak muncul dan materi maupun tugas tetap dibagikan sebagai tautan.
-
-Untuk mencoba pengiriman surel, isi `RESEND_API_KEY` dan `MAIL_FROM`. Tanpa keduanya tidak ada surel yang dikirim: tautan undangan tetap ditampilkan untuk diteruskan administrator, dan pemberitahuan hanya muncul pada bel di kepala halaman.
-
-Buat `AUTH_SECRET` acak. Untuk demo lokal saja, set `ENABLE_DEMO_AUTH=true` dan `DEMO_PASSWORD` ke nilai acak yang panjang. Demo memiliki tombol peran sehingga kata sandi tidak perlu ditampilkan. `SHADOW_DATABASE_URL` hanya dibutuhkan ketika membuat migrasi baru dengan `prisma migrate dev`.
-
-```powershell
-npm run db:migrate
-node --env-file=.env --import tsx prisma/seed.ts
+npm run db:deploy
+npm run db:seed
 npm run dev
 ```
 
-Buka http://localhost:3000. Akun demo tersedia untuk administrator, trainer, peserta, dan PIC. Seed dapat dijalankan ulang tanpa menggandakan record. Pada workspace ini database lokal bernama `tq-learning-workspace` telah disiapkan; mulai ulang dengan `npx prisma dev --name tq-learning-workspace` bila diperlukan. Port database tersimpan dalam `.env` lokal.
+`db:deploy` menerapkan migrasi yang sudah tersedia. `db:migrate` khusus membuat migrasi baru pada database pengembangan terpisah; isi `SHADOW_DATABASE_URL` dengan database sementara yang terpisah. Jangan memakai database aplikasi sebagai shadow database.
+
+Seed hanya membuat atau memperbarui:
+
+- Organisasi PT Globalindo Intimates.
+- Admin `center@tq-official.com` (SUPER_ADMIN).
+- Sembilan trainer yang tercantum dalam `prisma/seed.ts`.
+- Sepuluh peserta: `participant@globalindointimates.com` dan `participant2@globalindointimates.com` sampai `participant10@globalindointimates.com`, seluruhnya anggota PT Globalindo Intimates.
+
+Seed tidak membuat course, training, soal, aktivitas belajar, nilai, atau sertifikat. Menjalankannya ulang tidak menggandakan akun dan tidak menghapus pekerjaan yang sudah dibuat. Ini bukan perintah reset database. Seluruh akun menggunakan Supabase Auth sungguhan (`isDemo=false`); seed tidak menetapkan password bersama atau mengirim email.
+
+Untuk akun baru, administrator dapat membuat tautan pengaturan password dari halaman Pengguna. Tautan bootstrap awal disimpan secara lokal pada `.env.deployment-access.md`; tautan berlaku sekali selama tujuh hari sejak dibuat. Jangan membagikan berkas seluruh akun kepada peserta.
 
 ## Deployment
 
-Live: **https://tq-lms.vercel.app** (proyek Vercel `tq-lms`, fungsi di region `sin1`).
+Live: **https://tq-lms.vercel.app** (project Vercel `tq-lms`, region `sin1`).
 
-### Database: satu proyek Supabase, dua skema terpisah
+Production dan preview memakai koneksi Supabase `tq-lms` yang sama. `ENABLE_DEMO_AUTH=false`. Perubahan Environment Variables berlaku setelah deployment baru dibuat.
 
-Proyek Supabase `totalquality-website` sudah dipakai situs perusahaan — skema `public` berisi tabel `Hero`, `News`, `Career`, dan seterusnya, termasuk tabel `User` dan riwayat migrasi Prisma milik situs itu.
+Bucket `training-resources` bersifat privat. Jalankan `npm run storage:setup` untuk memeriksa unggah, metadata, unduh bertanda tangan, dan penghapusan file uji.
 
-LMS karena itu **tidak** memakai `public`. Seluruh tabelnya berada di skema `lms`, dengan peran Postgres `tq_lms_app` yang hanya diberi hak atas skema tersebut. Skema `public` dan kata sandi database milik situs tidak disentuh. Pemisahan ini yang membuat `User` milik LMS dan `User` milik situs dapat hidup berdampingan.
-
-Connection string memakai `?schema=lms`. Pooler transaksi (port 6543) dipakai runtime aplikasi dan pooler sesi (port 5432) dipakai migrasi.
-
-`connection_limit` sengaja tidak diisi 1: nested include Prisma menghasilkan banyak sub-query, dan dengan satu koneksi semuanya mengantre — satu halaman pernah memakan 23 detik dan melewati batas waktu fungsi. Fungsi juga dipasang di `sin1` agar sekamar dengan database; sebelumnya setiap perjalanan bolak-balik menyeberangi Pasifik.
-
-### Login di produksi
-
-`ENABLE_DEMO_AUTH=false` dan `NODE_ENV=production`, jadi tombol peran pada halaman masuk tidak muncul dan akun `isDemo` tidak dapat dipakai. Empat akun peran disediakan lewat Supabase Auth dengan `authId` tertaut ke record `User`. Kredensialnya ada pada `.env.deployment-access.md` (diabaikan git).
-
-Sembilan peserta contoh lainnya tetap `isDemo` — mereka data untuk mengisi daftar dan laporan, bukan akun yang bisa masuk.
 
 ### Memperbarui deployment
 
@@ -86,11 +80,10 @@ npx vercel deploy --prod
 ```powershell
 npm test
 npm run typecheck
-node --env-file=.env scripts/smoke.mjs
 npm run build
 ```
 
-`npm test` memeriksa aturan domain murni: kemajuan belajar, penguncian berurutan, penilaian otomatis, kehadiran, kelayakan sertifikat, validasi bank soal, dan ekspor CSV. Smoke test memeriksa otorisasi dan seluruh route dengan server pengembangan dan data seed berjalan.
+`npm test` memeriksa aturan domain murni: kemajuan belajar, penguncian berurutan, penilaian otomatis, kehadiran, kelayakan sertifikat, validasi bank soal, dan ekspor CSV. Smoke test lama (`scripts/smoke.mjs`) bergantung pada fixture demo yang sudah dihapus dari seed; jangan jalankan pada database bersih ini. Verifikasi alur baru dengan akun Supabase dan data pelatihan yang dibuat sendiri.
 
 Windows: hentikan `npm run dev` sebelum menjalankan build karena regenerasi Prisma dapat mengunci DLL yang sedang dipakai. Jalankan kembali setelah build.
 
@@ -109,6 +102,6 @@ Sertifikat diterbitkan hanya ketika syarat kelulusan terpenuhi, bernomor dari ur
 
 Laporan tidak tersedia untuk peserta: satu training juga memuat teman sekelasnya, sehingga ekspor akan membocorkan data orang lain. Rekam pribadi peserta ada pada halaman Riwayat pelatihan.
 
-Auth.js menggunakan cookie sesi HTTP-only dan pemeriksaan CSRF. Akses selalu diverifikasi ulang ke database; deactivation langsung mencabut akses pada permintaan berikutnya. URL materi hanya menerima http/https; materi eksternal mengikuti kontrol akses penyedianya. Berkas yang diunggah tersimpan pada bucket privat dan tidak punya alamat tetap: `/api/files/<jenis>/<id>` memeriksa ulang wewenang pada setiap permintaan lalu mengalihkan ke tautan bertanda tangan berumur satu menit, sehingga alamat yang terlanjur tersalin tetap melewati pemeriksaan yang sama. Supabase production auth dan Vercel deployment memerlukan konfigurasi akun nyata, dan belum diuji di proyek ini.
+Auth.js menggunakan cookie sesi HTTP-only dan pemeriksaan CSRF. Akses selalu diverifikasi ulang ke database; deactivation langsung mencabut akses pada permintaan berikutnya. URL materi hanya menerima http/https; materi eksternal mengikuti kontrol akses penyedianya. Berkas yang diunggah tersimpan pada bucket privat dan tidak punya alamat tetap: `/api/files/<jenis>/<id>` memeriksa ulang wewenang pada setiap permintaan lalu mengalihkan ke tautan bertanda tangan berumur satu menit, sehingga alamat yang terlanjur tersalin tetap melewati pemeriksaan yang sama. Koneksi database, Supabase Auth, serta Storage diperiksa setelah konfigurasi project diperbarui.
 
 Arsitektur, peta route, matriks RBAC, dan rencana bertahap: [docs/architecture.md](docs/architecture.md).

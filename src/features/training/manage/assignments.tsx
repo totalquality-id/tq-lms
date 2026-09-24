@@ -8,6 +8,9 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState, Table, TableWrap, Td, Th } from "@/components/ui/table";
 import { DialogForm } from "@/features/management/dialog-form";
+import { PreviewDialog } from "@/features/management/preview-dialog";
+import { AssignmentForm } from "@/features/learning/assignment-form";
+import { ACCEPTED_EXTENSIONS, storageConfigured } from "@/services/file";
 import {
   assignmentFields,
   reviewFields,
@@ -63,6 +66,28 @@ export async function ManageAssignments({ id }: { id: string }) {
                       </p>
                     </div>
                     <div className="flex gap-1">
+                      <PreviewDialog title={assignment.title}>
+                        <div className="space-y-4">
+                          <p className="text-xs text-ink-500">
+                            Batas waktu {dateTime(assignment.dueAt)} · nilai
+                            maksimum {assignment.maxScore}
+                          </p>
+                          <p className="text-sm leading-relaxed whitespace-pre-line text-ink-700">
+                            {assignment.instructions}
+                          </p>
+                          <AssignmentForm
+                            batchId={id}
+                            assignmentId={assignment.id}
+                            link=""
+                            notes=""
+                            submitted={false}
+                            uploads={storageConfigured()}
+                            accept={ACCEPTED_EXTENSIONS}
+                            maxBytes={assignment.maxBytes}
+                            preview
+                          />
+                        </div>
+                      </PreviewDialog>
                       <DialogForm
                         action={assignmentAction.bind(null, id, assignment.id)}
                         title="Edit tugas"

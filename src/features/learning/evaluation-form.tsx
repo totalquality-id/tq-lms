@@ -27,9 +27,11 @@ const SCALE_LABEL: Record<number, string> = {
 export function EvaluationForm({
   batchId,
   questions,
+  preview = false,
 }: {
   batchId: string;
   questions: EvaluationQuestion[];
+  preview?: boolean;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(
@@ -46,7 +48,11 @@ export function EvaluationForm({
   const categories = [...new Set(questions.map((item) => item.category))];
 
   return (
-    <form action={action} className="space-y-6">
+    <form
+      action={preview ? undefined : action}
+      onSubmit={preview ? (event) => event.preventDefault() : undefined}
+      className="space-y-6"
+    >
       {categories.map((category) => (
         <fieldset key={category} className="space-y-4">
           <legend className="text-sm font-semibold text-ink-900">
@@ -109,10 +115,11 @@ export function EvaluationForm({
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-ink-200 pt-4">
         <p className="mr-auto text-xs text-ink-500">
-          Jawaban dikirim satu kali dan dilaporkan sebagai rekap, tanpa nama
-          Anda.
+          {preview
+            ? "Jawaban preview tidak disimpan."
+            : "Jawaban dikirim satu kali dan dilaporkan sebagai rekap, tanpa nama Anda."}
         </p>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || preview}>
           {pending ? "Mengirim…" : "Kirim evaluasi"}
         </Button>
       </div>

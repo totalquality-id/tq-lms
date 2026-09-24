@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ export default async function CoursesPage({
 
   const where = {
     deletedAt: null,
+    sourceCourseId: null,
     ...(filters.status === "draft"
       ? { published: false }
       : filters.status === "published"
@@ -37,7 +38,7 @@ export default async function CoursesPage({
     db.course.findMany({
       where,
       include: {
-        _count: { select: { modules: true, batches: true, questions: true } },
+        _count: { select: { modules: true, copies: { where: { batches: { some: {} } } }, questions: true } },
       },
       orderBy: { title: "asc" },
       skip: (page - 1) * PAGE_SIZE,
@@ -50,7 +51,7 @@ export default async function CoursesPage({
     <div>
       <PageHeader
         title="Course"
-        description="Materi pembelajaran yang dapat dipakai ulang di banyak training."
+        description="Course induk yang disalin saat membuat training. Perubahan di sini hanya berlaku untuk training baru."
         action={
           <EntityForm
             entity="course"
@@ -118,7 +119,7 @@ export default async function CoursesPage({
                       {course._count.questions}
                     </Td>
                     <Td className="tabular text-right text-sm">
-                      {course._count.batches}
+                      {course._count.copies}
                     </Td>
                     <Td>
                       <StatusBadge

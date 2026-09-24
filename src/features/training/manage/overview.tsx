@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { SectionHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,10 @@ import {
   StatCard,
 } from "@/components/ui/card";
 import { EntityForm } from "@/features/management/entity-form";
-import { batchFields } from "@/features/management/fields";
+import { batchFields, courseFields } from "@/features/management/fields";
+import { CourseCurriculum } from "@/features/management/course-curriculum";
+import { PreviewDialog } from "@/features/management/preview-dialog";
+import { LessonContent } from "@/features/learning/lesson-content";
 import { db } from "@/lib/db";
 import { dateRange, labels, minutes } from "@/lib/utils";
 import { batchOverview } from "@/services/batch";
@@ -26,7 +29,7 @@ export async function ManageOverview({ id }: { id: string }) {
           orderBy: { name: "asc" },
         }),
         db.course.findMany({
-          where: { deletedAt: null },
+          where: { deletedAt: null, OR: [{ sourceCourseId: null }, { id: batch.courseId }] },
           select: { id: true, title: true },
           orderBy: { title: "asc" },
         }),
@@ -178,19 +181,30 @@ export async function ManageOverview({ id }: { id: string }) {
         </Card>
       ) : null}
 
-      <section>
+      <Card>
+        <CardHeader
+          title="Course training"
+          description="Salinan khusus training ini. Perubahan materi dan soal tidak memengaruhi course induk atau training lain."
+          action={admin ? <EntityForm entity="course" id={batch.courseId} title="Edit course training"
+            buttonLabel="Edit course training" size="sm"
+            fields={courseFields(batch.course).filter((field) => field.name !== "published")} /> : undefined}
+        />
+        <CardBody className="space-y-3">
+          <DescriptionList items={[
+            { term: "Judul", value: batch.course.title },
+            { term: "Sumber", value: batch.course.sourceCourse?.title ?? "Course induk" },
+            { term: "Durasi", value: `${batch.course.duration} jam` },
+            { term: "Alur belajar", value: batch.course.sequential ? "Berurutan" : "Bebas" },
+          ]} />
+          <p className="whitespace-pre-line text-sm text-ink-700">{batch.course.description || batch.course.shortDescription}</p>
+          {batch.course.objectives ? <p className="whitespace-pre-line text-sm text-ink-700">{batch.course.objectives}</p> : null}
+        </CardBody>
+      </Card>
+
+      {admin ? <CourseCurriculum course={batch.course} /> : <section>
         <SectionHeader
           title="Kurikulum course"
           description={`${batch.course.modules.length} modul · ${lessonCount} pelajaran · ${batch.course.duration} jam`}
-          action={
-            admin ? (
-              <Button asChild variant="link" size="sm">
-                <Link href={`/admin/courses/${batch.courseId}`}>
-                  Kelola course
-                </Link>
-              </Button>
-            ) : undefined
-          }
         />
         <Card>
           {batch.course.modules.length ? (
@@ -209,6 +223,27 @@ export async function ManageOverview({ id }: { id: string }) {
                       ),
                     )}
                   </p>
+                  <ul className="mt-3 space-y-2">
+                    {courseModule.lessons.map((lesson) => (
+                      <li
+                        key={lesson.id}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="text-sm text-ink-700">
+                          {lesson.title}
+                        </span>
+                        <PreviewDialog title={lesson.title}>
+                          <div className="space-y-4">
+                            <p className="text-xs text-ink-500">
+                              {labels[lesson.type] ?? lesson.type} ·{" "}
+                              {minutes(lesson.duration)}
+                            </p>
+                            <LessonContent lesson={lesson} />
+                          </div>
+                        </PreviewDialog>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -220,7 +255,7 @@ export async function ManageOverview({ id }: { id: string }) {
             </CardBody>
           )}
         </Card>
-      </section>
+      </section>}
     </div>
   );
 }

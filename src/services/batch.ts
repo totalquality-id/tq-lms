@@ -121,6 +121,7 @@ export async function batchOverview(id: string) {
     include: {
       course: {
         include: {
+          sourceCourse: { select: { id: true, title: true } },
           modules: {
             orderBy: { position: "asc" },
             include: { lessons: { orderBy: { position: "asc" } } },
@@ -371,7 +372,9 @@ export async function batchEvaluation(id: string) {
     where,
     select: {
       id: true,
-      evaluation: { select: { id: true, open: true } },
+      evaluation: {
+        select: { id: true, open: true, title: true, questions: true },
+      },
       _count: { select: { enrollments: { where: enrollmentWhere(user) } } },
     },
   });

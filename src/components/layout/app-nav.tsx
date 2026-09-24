@@ -19,7 +19,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 

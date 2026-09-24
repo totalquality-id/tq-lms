@@ -35,7 +35,7 @@ function render({ heading, lines, action, footer }: Mail) {
     )
     .join("");
   const button = action
-    ? `<p style="margin:24px 0"><a href="${escape(action.url)}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#2A2EB0;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none">${escape(action.label)}</a></p>`
+    ? `<p style="margin:24px 0"><a href="${escape(action.url)}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#173e76;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none">${escape(action.label)}</a></p>`
     : "";
   const note = footer
     ? `<p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#697687">${escape(footer)}</p>`

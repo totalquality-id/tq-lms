@@ -1,9 +1,10 @@
 # Berkas rahasia tidak pernah ikut terunggah ke build Vercel. Nilai untuk
 # produksi berasal dari Environment Variables milik proyek, bukan dari berkas
-# di mesin pengembang — dan .env lokal menunjuk ke database localhost.
+# di mesin pengembang.
 .env
 .env.*
 .vercel-token
+.local
 
 node_modules
 .next

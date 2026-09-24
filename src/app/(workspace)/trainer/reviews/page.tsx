@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { gradeEssayAction, reviewSubmissionAction } from "@/app/staff-actions";
 import { PageHeader, SectionHeader } from "@/components/layout/page-header";

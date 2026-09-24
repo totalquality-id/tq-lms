@@ -23,11 +23,35 @@ export const questionSchema = z
     points: z.coerce.number().int().min(1).max(100),
     explanation: z.string().trim().max(2000).optional().default(""),
     /**
-     * Pilihan ditulis satu per baris. Jawaban benar ditandai dengan tanda
-     * bintang di depan baris — satu kolom teks jauh lebih cepat diisi
-     * daripada barisan input dinamis, dan hasilnya tetap dapat divalidasi.
+     * Format teks untuk kompatibilitas dengan formulir lama. Form visual
+     * memakai optionItems agar isi jawaban dan penanda kunci terpisah.
      */
     options: z.string().max(5000).optional().default(""),
+    // Form visual mengirim array JSON agar tanda * pada teks tetap literal.
+    optionItems: z.preprocess(
+      (value) => {
+        if (typeof value !== "string") return value;
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      },
+      z
+        .array(
+          z.object({
+            text: z
+              .string()
+              .trim()
+              .min(1, "Isi setiap pilihan jawaban.")
+              .max(500),
+            correct: z.boolean(),
+          }),
+        )
+        .min(2, "Tambahkan minimal dua pilihan jawaban.")
+        .max(20)
+        .optional(),
+    ),
     correctText: z.string().trim().max(500).optional().default(""),
   })
   .superRefine((value, ctx) => {
@@ -37,7 +61,7 @@ export const questionSchema = z
       value.type === "TRUE_FALSE";
 
     if (choice) {
-      const lines = parseOptions(value.options);
+      const lines = value.optionItems ?? parseOptions(value.options);
       if (lines.length < 2)
         ctx.addIssue({
           code: "custom",
@@ -49,7 +73,9 @@ export const questionSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["options"],
-          message: "Tandai jawaban benar dengan * di awal baris.",
+          message: value.optionItems
+            ? "Pilih kunci jawaban yang benar."
+            : "Tandai jawaban benar dengan * di awal baris.",
         });
       if (value.type !== "MULTIPLE_CHOICE" && correct > 1)
         ctx.addIssue({

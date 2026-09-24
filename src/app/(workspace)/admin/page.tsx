@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { PageHeader, SectionHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
@@ -60,7 +60,7 @@ export default async function AdminDashboard() {
       orderBy: { startDate: "asc" },
       take: 5,
     }),
-    db.course.count({ where: { deletedAt: null, published: false } }),
+    db.course.count({ where: { deletedAt: null, sourceCourseId: null, published: false } }),
     db.trainingBatch.count({
       where: {
         deletedAt: null,

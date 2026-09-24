@@ -178,6 +178,9 @@ model OrganizationMember {
 
 model Course {
   id               String          @id @default(cuid())
+  sourceCourseId   String?
+  sourceCourse     Course?         @relation("CourseCopies", fields: [sourceCourseId], references: [id], onDelete: Restrict)
+  copies           Course[]        @relation("CourseCopies")
   title            String
   slug             String          @unique
   code             String          @default("TQ")
@@ -200,6 +203,7 @@ model Course {
   questions        Question[]
 
   @@index([published, deletedAt])
+  @@index([sourceCourseId])
 }
 
 model CourseModule {

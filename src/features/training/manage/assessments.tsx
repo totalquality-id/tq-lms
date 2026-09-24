@@ -7,6 +7,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { Note } from "@/components/ui/field";
 import { EmptyState, Table, TableWrap, Td, Th } from "@/components/ui/table";
 import { DialogForm } from "@/features/management/dialog-form";
+import { PreviewDialog } from "@/features/management/preview-dialog";
+import { AssessmentPreview } from "./assessment-preview";
 import { assessmentFields } from "@/features/management/staff-fields";
 import { db } from "@/lib/db";
 import { parseRules } from "@/lib/question-selection";
@@ -152,6 +154,22 @@ export async function ManageAssessments({
                       </Td>
                       <Td>
                         <div className="flex justify-end gap-1">
+                          <PreviewDialog title={assessment.title}>
+                            <AssessmentPreview
+                              batchId={id}
+                              assessment={{
+                                id: assessment.id,
+                                instructions: assessment.instructions,
+                                durationMinutes: assessment.durationMinutes,
+                                passingGrade: assessment.passingGrade,
+                                maxAttempts: assessment.maxAttempts,
+                                selection: assessment.selection,
+                                randomizeQuestions:
+                                  assessment.randomizeQuestions,
+                                randomizeOptions: assessment.randomizeOptions,
+                              }}
+                            />
+                          </PreviewDialog>
                           {assessment.selection === "MANUAL" ? (
                             <ManualQuestionPicker
                               batchId={id}

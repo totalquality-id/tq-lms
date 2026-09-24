@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { Note } from "@/components/ui/field";
 import { AuthShell } from "@/features/auth/auth-shell";

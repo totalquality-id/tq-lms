@@ -28,12 +28,15 @@ export async function saveQuestion(
     data.type === "SINGLE_CHOICE" ||
     data.type === "MULTIPLE_CHOICE" ||
     data.type === "TRUE_FALSE"
-      ? parseOptions(data.options)
+      ? (data.optionItems ?? parseOptions(data.options))
       : [];
 
   return db.$transaction(async (tx) => {
     await tx.course.findFirstOrThrow({
       where: { id: data.courseId, deletedAt: null },
+    });
+    if (id) await tx.question.findFirstOrThrow({
+      where: { id, courseId: data.courseId, deletedAt: null },
     });
 
     const values = {
@@ -331,6 +334,7 @@ export { parseRules };
 export type QuestionFilters = {
   q?: string;
   courseId?: string;
+  topic?: string;
   type?: string;
   difficulty?: string;
 };
@@ -341,6 +345,7 @@ export function questionWhere(
   return {
     deletedAt: null,
     ...(filters.courseId ? { courseId: filters.courseId } : {}),
+    ...(filters.topic ? { topic: filters.topic } : {}),
     ...(filters.type
       ? { type: filters.type as Prisma.QuestionWhereInput["type"] }
       : {}),

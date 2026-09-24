@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/navigation-link";
 
 import { BrandMark } from "@/components/layout/brand";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
