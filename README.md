@@ -47,6 +47,8 @@ npm run dev
 
 `db:deploy` menerapkan migrasi yang sudah tersedia. `db:migrate` khusus membuat migrasi baru pada database pengembangan terpisah; isi `SHADOW_DATABASE_URL` dengan database sementara yang terpisah. Jangan memakai database aplikasi sebagai shadow database.
 
+Setelah mengambil perubahan schema atau migrasi, hentikan server lokal lalu jalankan `npm run db:deploy` dan `npm run db:generate` sebelum `npm run dev`. `prisma generate` hanya memperbarui client, bukan struktur database. Error seperti `The column Course.sourceCourseId does not exist` berarti database belum memiliki kolom yang digunakan kode; periksa dengan `npx prisma migrate status` dan terapkan migrasi yang tertunda.
+
 Seed hanya membuat atau memperbarui:
 
 - Organisasi PT Globalindo Intimates.
@@ -70,8 +72,11 @@ Bucket `training-resources` bersifat privat. Jalankan `npm run storage:setup` un
 ### Memperbarui deployment
 
 ```powershell
+npm run db:deploy
 npx vercel deploy --prod
 ```
+
+Migrasi harus berhasil sebelum kode baru dideploy. Build hanya menjalankan `prisma generate`; build tidak menerapkan migrasi database.
 
 `.vercelignore` menahan `.env*` agar berkas rahasia lokal tidak ikut terunggah; nilai untuk produksi berasal dari Environment Variables milik proyek Vercel.
 
