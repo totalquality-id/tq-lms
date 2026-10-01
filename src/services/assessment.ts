@@ -54,25 +54,41 @@ async function pickQuestions(
     .map((link) => link.question)
     .filter((question) => !question.deletedAt);
 
-  // Bank soal hanya dibaca bila modenya memerlukannya.
-  const bank =
-    assessment.selection === "MANUAL"
-      ? []
-      : await tx.question.findMany({
-          where: { courseId: assessment.batch.courseId, deletedAt: null },
-          include: { options: { orderBy: { position: "asc" } } },
-          orderBy: { id: "asc" },
-        });
+  // Bank soal selalu dibaca seluruhnya agar bisa mengaitkan anak dengan induknya
+  const allBank = await tx.question.findMany({
+    where: { courseId: assessment.batch.courseId, deletedAt: null },
+    include: { options: { orderBy: { position: "asc" } } },
+    orderBy: [{ topic: "asc" }, { id: "asc" }],
+  });
 
-  const { questions } = selectQuestions(
+  const childrenByParent = new Map<string, typeof allBank>();
+  for (const q of allBank) {
+    if (q.parentId) {
+      if (!childrenByParent.has(q.parentId)) {
+        childrenByParent.set(q.parentId, []);
+      }
+      childrenByParent.get(q.parentId)!.push(q);
+    }
+  }
+
+  const topLevelManual = manual.filter((q) => !q.parentId);
+  const topLevelBank = allBank.filter((q) => !q.parentId);
+
+  const { questions: selectedTopLevel } = selectQuestions(
     {
       mode: assessment.selection,
       rules: parseRules(assessment.selectionRules),
       limit: assessment.questionLimit,
       randomize: assessment.randomizeQuestions,
     },
-    { manual, bank },
+    { manual: topLevelManual, bank: topLevelBank },
   );
+
+  const questions = selectedTopLevel.flatMap((parent) => {
+    const children = childrenByParent.get(parent.id) || [];
+    // Jangan mengacak urutan anak, karena biasanya studi kasus berurutan logis
+    return [parent, ...children];
+  });
 
   if (questions.length === 0)
     throw new Error(

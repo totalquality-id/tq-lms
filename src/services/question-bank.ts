@@ -94,7 +94,11 @@ export async function saveQuestion(
 
 export async function archiveQuestion(id: string) {
   const actor = await requireAdmin();
-  await db.question.update({ where: { id }, data: { deletedAt: new Date() } });
+  const question = await db.question.update({ 
+    where: { id }, 
+    data: { deletedAt: new Date() },
+    select: { courseId: true }
+  });
   await db.auditLog.create({
     data: {
       actorId: actor.id,
@@ -103,6 +107,12 @@ export async function archiveQuestion(id: string) {
       entityId: id,
     },
   });
+
+  try {
+    await syncCopiesOfCourse(question.courseId);
+  } catch (error) {
+    console.error("Sinkron arsip soal ke training gagal:", error);
+  }
 }
 
 /**
@@ -281,7 +291,7 @@ export async function setSelectionRules(
     select: { id: true, topic: true },
   });
 
-  const short = applyRules(rules, bank).outcomes.filter(
+  const short = applyRules(rules, bank, false).outcomes.filter(
     (outcome) => outcome.taken < outcome.requested,
   );
   if (short.length)
@@ -334,7 +344,7 @@ export async function courseQuestions(batchId: string) {
     select: { courseId: true },
   });
   return db.question.findMany({
-    where: { courseId: batch.courseId, deletedAt: null },
+    where: { courseId: batch.courseId, deletedAt: null, parentId: null },
     select: {
       id: true,
       topic: true,

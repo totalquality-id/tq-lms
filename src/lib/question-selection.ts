@@ -60,6 +60,7 @@ export function topicCounts(bank: SelectableQuestion[]) {
 export function applyRules<T extends SelectableQuestion>(
   rules: SelectionRule[],
   bank: T[],
+  randomize: boolean,
   shuffle: Shuffle = shuffleInPlace,
 ): Selection<T> {
   const byTopic = new Map<string, T[]>();
@@ -75,7 +76,7 @@ export function applyRules<T extends SelectableQuestion>(
   for (const rule of rules) {
     if (rule.count <= 0) continue;
     const available = byTopic.get(rule.topic) ?? [];
-    const taken = shuffle(available).slice(0, rule.count);
+    const taken = (randomize ? shuffle(available) : available).slice(0, rule.count);
     questions.push(...taken);
     outcomes.push({
       topic: rule.topic,
@@ -86,7 +87,8 @@ export function applyRules<T extends SelectableQuestion>(
 
   // Urutan topik tidak boleh membocorkan struktur aturan kepada peserta:
   // tanpa pengacakan akhir, semua soal Klausul 4 selalu muncul berurutan.
-  return { questions: shuffle(questions), outcomes };
+  // Namun, jika trainer mematikan opsi acak, maka urutan asli (dan pengelompokan topik) dipertahankan.
+  return { questions: randomize ? shuffle(questions) : questions, outcomes };
 }
 
 /**
@@ -116,7 +118,7 @@ export function selectQuestions<T extends SelectableQuestion>(
     return { questions, outcomes: [] };
   }
 
-  if (mode === "RULES") return applyRules(rules, bank, shuffle);
+  if (mode === "RULES") return applyRules(rules, bank, randomize, shuffle);
 
   const ordered = randomize ? shuffle(bank) : bank;
   return {

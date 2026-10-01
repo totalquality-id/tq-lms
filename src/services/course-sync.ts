@@ -45,8 +45,25 @@ export async function syncCopyQuestions(
         return `${copy.id}_${sourceId}`;
     };
 
+    // Sinkronisasi pengarsipan: soal yang diarsipkan di induk juga diarsipkan di salinan.
+    const sourceArchived = await tx.question.findMany({
+        where: { courseId: copy.sourceCourseId, deletedAt: { not: null } },
+        select: { id: true },
+    });
+    
+    const archivedIdsToSync = sourceArchived
+        .map((question) => copyIdOf(question.id))
+        .filter((id) => have.has(id));
+
+    if (archivedIdsToSync.length > 0) {
+        await tx.question.updateMany({
+            where: { id: { in: archivedIdsToSync }, deletedAt: null },
+            data: { deletedAt: new Date() },
+        });
+    }
+
     const missing = source.filter((question) => !have.has(copyIdOf(question.id)));
-    if (missing.length === 0) return 0;
+    if (missing.length === 0) return archivedIdsToSync.length;
 
     const missingIds = new Set(missing.map((question) => copyIdOf(question.id)));
     const rows = missing.map((question) => {
@@ -88,7 +105,7 @@ export async function syncCopyQuestions(
         skipDuplicates: true,
     });
 
-    return missing.length;
+    return missing.length + archivedIdsToSync.length;
 }
 
 /** Dorong soal baru course induk ke semua training yang masih berjalan. */

@@ -136,7 +136,7 @@ function QuestionForm({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="courseId" value={course.id} />
-      {parentId ? <input type="hidden" name="parentId" value={parentId} /> : null}
+      {parentId || question?.parentId ? <input type="hidden" name="parentId" value={parentId || question?.parentId || ""} /> : null}
       {isChoice ? (
         <input
           type="hidden"
