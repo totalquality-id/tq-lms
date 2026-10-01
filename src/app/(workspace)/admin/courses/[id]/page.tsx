@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import {
   ArchiveButton,
+  DeleteEntityButton,
   EntityForm,
 } from "@/features/management/entity-form";
 import { courseFields } from "@/features/management/fields";
@@ -117,12 +118,19 @@ export default async function CourseDetailPage({
             </CardBody>
           </Card>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
             <ArchiveButton
               entity="course"
               id={id}
               variant="secondary"
               description="Course disembunyikan dari daftar. Training yang sudah memakainya tetap berjalan dan riwayatnya tersimpan."
+            />
+            <span className="text-ink-300">·</span>
+            <DeleteEntityButton
+              entity="course"
+              id={id}
+              title={course.title}
+              description="Course beserta seluruh modul, pelajaran, dan bank soal akan dihapus permanen. Tindakan ini tidak dapat dibatalkan."
             />
           </div>
         </aside>

@@ -9,7 +9,7 @@ import {
   DescriptionList,
   StatCard,
 } from "@/components/ui/card";
-import { ArchiveButton, EntityForm } from "@/features/management/entity-form";
+import { ArchiveButton, DeleteEntityButton, EntityForm } from "@/features/management/entity-form";
 import { batchFields, courseFields } from "@/features/management/fields";
 import { CourseCurriculum } from "@/features/management/course-curriculum";
 import { PreviewDialog } from "@/features/management/preview-dialog";
@@ -258,12 +258,19 @@ export async function ManageOverview({ id }: { id: string }) {
       </section>}
 
       {admin && !["OPEN", "ONGOING"].includes(batch.status) ? (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
           <ArchiveButton
             entity="batch"
             id={id}
             description="Training disembunyikan dari daftar. Riwayat peserta, sertifikat, dan datanya tetap tersimpan."
             variant="secondary"
+          />
+          <span className="text-ink-300">·</span>
+          <DeleteEntityButton
+            entity="batch"
+            id={id}
+            title={batch.title}
+            description="Training beserta salinan course-nya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan."
           />
         </div>
       ) : null}

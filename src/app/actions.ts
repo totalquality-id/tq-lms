@@ -5,6 +5,7 @@ import { failure } from "@/lib/action-result";
 import {
   saveEntity,
   archiveEntity,
+  deleteEntity,
   reorder,
   type Entity,
 } from "@/services/management";
@@ -52,6 +53,21 @@ export async function archiveAction(
     await archiveEntity(entity, id);
     revalidatePath("/", "layout");
     return { success: "Data berhasil diperbarui." };
+  } catch (e) {
+    return failure(e);
+  }
+}
+export async function deleteEntityAction(
+  entity: "course" | "batch",
+  id: string,
+): Promise<FormState> {
+  try {
+    await deleteEntity(entity, id);
+    revalidatePath("/", "layout");
+    return {
+      success: "Data berhasil dihapus permanen.",
+      redirectTo: entity === "course" ? "/admin/courses" : "/admin/training",
+    };
   } catch (e) {
     return failure(e);
   }

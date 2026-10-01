@@ -444,6 +444,148 @@ export async function archiveEntity(entity: Entity, id: string) {
     });
   });
 }
+
+/**
+ * Menghapus permanen entitas course atau batch beserta seluruh data
+ * turunannya. Hanya entitas yang belum diarsipkan (deletedAt === null)
+ * yang ditangani di sini — penghapusan dari arsip memakai deleteArchived.
+ *
+ * Operasi ini tidak dapat dibatalkan. Pemeriksaan keselamatan:
+ * - Course: tidak boleh masih dipakai oleh training manapun (aktif/non-aktif).
+ * - Batch:  tidak boleh memiliki peserta, penilaian, atau tugas.
+ */
+export async function deleteEntity(
+  entity: "course" | "batch",
+  id: string,
+) {
+  const actor = await requireAdmin();
+  await db.$transaction(
+    async (tx) => {
+      if (entity === "course") {
+        const course = await tx.course.findFirstOrThrow({
+          where: { id, sourceCourseId: null, deletedAt: null },
+        });
+
+        // Tolak jika course induk ini masih memiliki salinan yang dipakai
+        // training mana pun (termasuk training yang sudah diarsipkan).
+        const copyCount = await tx.course.count({
+          where: { sourceCourseId: course.id, batches: { some: {} } },
+        });
+        if (copyCount > 0)
+          throw new Error(
+            "Course ini masih dipakai oleh training. Hapus training terkait terlebih dahulu.",
+          );
+
+        // Hapus bank soal beserta opsinya
+        await tx.questionOption.deleteMany({
+          where: { question: { courseId: course.id } },
+        });
+        await tx.assessmentQuestion.deleteMany({
+          where: { question: { courseId: course.id } },
+        });
+        await tx.question.deleteMany({ where: { courseId: course.id } });
+
+        // Hapus kurikulum
+        await tx.lesson.deleteMany({
+          where: { module: { courseId: course.id } },
+        });
+        await tx.courseModule.deleteMany({ where: { courseId: course.id } });
+
+        // Hapus course itu sendiri
+        await tx.course.delete({ where: { id } });
+      } else if (entity === "batch") {
+        const batch = await tx.trainingBatch.findFirstOrThrow({
+          where: { id, deletedAt: null },
+        });
+
+        if (["OPEN", "ONGOING"].includes(batch.status))
+          throw new Error(
+            "Training aktif tidak dapat dihapus. Ubah statusnya terlebih dahulu.",
+          );
+
+        // Tolak jika training memiliki data operasional
+        const enrollCount = await tx.enrollment.count({
+          where: { batchId: id },
+        });
+        if (enrollCount > 0)
+          throw new Error(
+            "Training ini memiliki data peserta dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
+          );
+
+        const assessmentCount = await tx.assessment.count({
+          where: { batchId: id },
+        });
+        if (assessmentCount > 0)
+          throw new Error(
+            "Training ini memiliki penilaian dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
+          );
+
+        const assignmentCount = await tx.assignment.count({
+          where: { batchId: id },
+        });
+        if (assignmentCount > 0)
+          throw new Error(
+            "Training ini memiliki tugas dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
+          );
+
+        // Hapus trainer assignment
+        await tx.trainingBatchTrainer.deleteMany({ where: { batchId: id } });
+
+        // Hapus resource
+        await tx.trainingResource.deleteMany({ where: { batchId: id } });
+
+        // Hapus evaluasi training (formulir dan respons)
+        const evaluation = await tx.trainingEvaluation.findUnique({
+          where: { batchId: id },
+        });
+        if (evaluation) {
+          await tx.evaluationResponse.deleteMany({
+            where: { evaluationId: evaluation.id },
+          });
+          await tx.trainingEvaluation.delete({ where: { id: evaluation.id } });
+        }
+
+        // Hapus salinan course khusus training ini
+        const courseId = batch.courseId;
+        await tx.trainingBatch.delete({ where: { id } });
+
+        // Hapus course copy (salinan khusus training)
+        const copy = await tx.course.findFirst({
+          where: { id: courseId, sourceCourseId: { not: null } },
+        });
+        if (copy) {
+          await tx.questionOption.deleteMany({
+            where: { question: { courseId: copy.id } },
+          });
+          await tx.assessmentQuestion.deleteMany({
+            where: { question: { courseId: copy.id } },
+          });
+          await tx.question.deleteMany({ where: { courseId: copy.id } });
+          await tx.lesson.deleteMany({
+            where: { module: { courseId: copy.id } },
+          });
+          await tx.courseModule.deleteMany({ where: { courseId: copy.id } });
+          await tx.course.delete({ where: { id: copy.id } });
+        }
+      } else {
+        throw new Error("Penghapusan permanen tidak tersedia untuk data ini.");
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.id,
+          action: "DELETE",
+          entity,
+          entityId: id,
+        },
+      });
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      timeout: 30000,
+    },
+  );
+}
 export async function reorder(
   entity: "module" | "lesson",
   id: string,

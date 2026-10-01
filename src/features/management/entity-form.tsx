@@ -9,10 +9,11 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 
 import {
   archiveAction,
+  deleteEntityAction,
   profileAction,
   reorderAction,
   saveAction,
@@ -258,6 +259,123 @@ export function ArchiveButton({
           >
             {pending ? "Memproses…" : label}
           </Button>
+        </div>
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * Tombol hapus permanen dengan konfirmasi ketik-ulang judul.
+ *
+ * Pola "type to confirm" mencegah penghapusan tidak sengaja —
+ * tombol hapus baru aktif setelah pengguna mengetik ulang judul
+ * entitas yang akan dihapus. Setelah berhasil, pengguna dialihkan
+ * ke halaman daftar.
+ */
+export function DeleteEntityButton({
+  entity,
+  id,
+  title,
+  description = "Semua data terkait akan dihapus selamanya. Tindakan ini tidak dapat dibatalkan.",
+}: {
+  entity: "course" | "batch";
+  id: string;
+  title: string;
+  description?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  const confirmed = confirm.trim() === title.trim();
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="link"
+        onClick={() => setOpen(true)}
+        className="text-red-600 hover:text-red-700"
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+        Hapus permanen
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          setOpen(value);
+          if (!value) setConfirm("");
+        }}
+        title="Hapus permanen?"
+        description={description}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm font-medium text-red-800">
+              ⚠️ Perhatian
+            </p>
+            <p className="mt-1 text-sm text-red-700">
+              Anda akan menghapus{" "}
+              <strong className="font-semibold">&ldquo;{title}&rdquo;</strong>{" "}
+              secara permanen. Data yang dihapus tidak dapat dipulihkan.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor="delete-confirm"
+              className="block text-sm text-ink-700"
+            >
+              Ketik{" "}
+              <strong className="select-all font-semibold text-ink-900">
+                {title}
+              </strong>{" "}
+              untuk mengonfirmasi:
+            </label>
+            <input
+              id="delete-confirm"
+              type="text"
+              className="mt-2 block w-full rounded-md border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+              placeholder={title}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-ink-200 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setOpen(false);
+                setConfirm("");
+              }}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={!confirmed || pending}
+              onClick={() =>
+                start(async () => {
+                  const result = await deleteEntityAction(entity, id);
+                  if (result.error) toast.error(result.error);
+                  else {
+                    toast.success(result.success);
+                    setOpen(false);
+                    if (result.redirectTo) router.push(result.redirectTo);
+                    else router.refresh();
+                  }
+                })
+              }
+            >
+              {pending ? "Menghapus…" : "Hapus permanen"}
+            </Button>
+          </div>
         </div>
       </Dialog>
     </>
