@@ -354,18 +354,22 @@ function QuestionForm({
               <option value="HARD">Sulit</option>
             </Select>
           </Field>
-          <Field label="Poin jawaban benar" htmlFor={id("points")}>
-            <Input
-              id={id("points")}
-              name="points"
-              type="number"
-              min={1}
-              max={100}
-              required
-              value={points}
-              onChange={(event) => setPoints(event.target.value)}
-            />
-          </Field>
+          {kind !== "CASE_STUDY" ? (
+            <Field label="Poin jawaban benar" htmlFor={id("points")}>
+              <Input
+                id={id("points")}
+                name="points"
+                type="number"
+                min={1}
+                max={100}
+                required
+                value={points}
+                onChange={(event) => setPoints(event.target.value)}
+              />
+            </Field>
+          ) : (
+            <input type="hidden" name="points" value="0" />
+          )}
         </div>
         <Field
           label="Pembahasan (opsional)"

@@ -14,7 +14,7 @@ export function AssessmentQuestions({
         <Card key={question.id}>
           <CardHeader
             title={`Soal ${index + 1}`}
-            description={`${labels[question.type] ?? question.type} · ${question.points} poin`}
+            description={`${labels[question.type] ?? question.type}${question.type !== "CASE_STUDY" ? ` · ${question.points} poin` : ""}`}
           />
           <CardBody className="space-y-3">
             <p

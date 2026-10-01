@@ -20,7 +20,7 @@ export const questionSchema = z
       .trim()
       .min(5, "Tuliskan pertanyaan minimal 5 karakter.")
       .max(5000),
-    points: z.coerce.number().int().min(1).max(100),
+    points: z.coerce.number().int().min(0).max(100),
     requiresReason: z.coerce.boolean().optional().default(false),
     parentId: z.string().optional(),
     explanation: z.string().trim().max(2000).optional().default(""),
@@ -92,6 +92,13 @@ export const questionSchema = z
         code: "custom",
         path: ["correctText"],
         message: "Isi kunci jawaban untuk isian singkat.",
+      });
+
+    if (value.type !== "CASE_STUDY" && value.points < 1)
+      ctx.addIssue({
+        code: "custom",
+        path: ["points"],
+        message: "Poin jawaban harus minimal 1.",
       });
   });
 

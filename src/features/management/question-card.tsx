@@ -43,7 +43,9 @@ export function QuestionCard({
             <Badge tone="warning">Wajib Alasan</Badge>
           ) : null}
           <Badge>{labels[question.difficulty] ?? question.difficulty}</Badge>
-          <span className="text-xs text-ink-500">{question.points} poin</span>
+          {question.type !== "CASE_STUDY" ? (
+            <span className="text-xs text-ink-500">{question.points} poin</span>
+          ) : null}
           {question.usageCount ? (
             <span className="text-xs text-ink-500">
               · Dipakai di {question.usageCount} penilaian
