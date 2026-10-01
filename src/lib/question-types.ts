@@ -4,6 +4,7 @@ export const QUESTION_TYPE_LABELS = {
   TRUE_FALSE: "Benar / Salah",
   SHORT_TEXT: "Isian singkat",
   ESSAY: "Esai",
+  CASE_STUDY: "Studi Kasus",
 } as const;
 
 export type QuestionKind = keyof typeof QUESTION_TYPE_LABELS;

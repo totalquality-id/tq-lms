@@ -14,7 +14,8 @@
     "test": "tsx --test tests/*.test.ts",
     "test:integration": "node --env-file=.env scripts/smoke.mjs",
     "storage:setup": "node --env-file=.env scripts/setup-storage.mjs",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "questions:import": "node --env-file=.env --import tsx scripts/import-questions.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",

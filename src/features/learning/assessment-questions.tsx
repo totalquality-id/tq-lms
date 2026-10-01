@@ -23,7 +23,7 @@ export function AssessmentQuestions({
             >
               {question.text}
             </p>
-            <QuestionInput question={question} />
+            {question.type !== "CASE_STUDY" ? <QuestionInput question={question} /> : null}
           </CardBody>
         </Card>
       ))}
@@ -81,6 +81,20 @@ function QuestionInput({ question }: { question: VisibleQuestion }) {
           <span>{option.text}</span>
         </label>
       ))}
+      {question.type === "TRUE_FALSE" && question.requiresReason ? (
+        <div className="pt-2">
+          <label className="block mb-1 text-sm font-medium text-ink-700" htmlFor={`reason-${question.id}`}>
+            Alasan jawaban (Wajib):
+          </label>
+          <Textarea
+            id={`reason-${question.id}`}
+            name={`reason-${question.id}`}
+            required
+            placeholder="Tuliskan alasan untuk jawaban Anda..."
+            rows={3}
+          />
+        </div>
+      ) : null}
     </fieldset>
   );
 }

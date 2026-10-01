@@ -64,6 +64,7 @@ enum QuestionType {
   TRUE_FALSE
   SHORT_TEXT
   ESSAY
+  CASE_STUDY
 }
 
 enum CertificateStatus {
@@ -366,9 +367,13 @@ model Question {
   explanation String?
   points      Int                  @default(1)
   deletedAt   DateTime?
+  requiresReason Boolean              @default(false)
+  parentId       String?
   course      Course               @relation(fields: [courseId], references: [id])
   options     QuestionOption[]
   assessments AssessmentQuestion[]
+  parent      Question?            @relation("CaseStudyQuestions", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Question[]           @relation("CaseStudyQuestions")
 }
 
 model QuestionOption {

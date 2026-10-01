@@ -21,6 +21,8 @@ export const questionSchema = z
       .min(5, "Tuliskan pertanyaan minimal 5 karakter.")
       .max(5000),
     points: z.coerce.number().int().min(1).max(100),
+    requiresReason: z.coerce.boolean().optional().default(false),
+    parentId: z.string().optional(),
     explanation: z.string().trim().max(2000).optional().default(""),
     /**
      * Format teks untuk kompatibilitas dengan formulir lama. Form visual

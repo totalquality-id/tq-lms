@@ -9,7 +9,7 @@ import {
   DescriptionList,
   StatCard,
 } from "@/components/ui/card";
-import { EntityForm } from "@/features/management/entity-form";
+import { ArchiveButton, EntityForm } from "@/features/management/entity-form";
 import { batchFields, courseFields } from "@/features/management/fields";
 import { CourseCurriculum } from "@/features/management/course-curriculum";
 import { PreviewDialog } from "@/features/management/preview-dialog";
@@ -256,6 +256,17 @@ export async function ManageOverview({ id }: { id: string }) {
           )}
         </Card>
       </section>}
+
+      {admin && !["OPEN", "ONGOING"].includes(batch.status) ? (
+        <div className="flex justify-end">
+          <ArchiveButton
+            entity="batch"
+            id={id}
+            description="Training disembunyikan dari daftar. Riwayat peserta, sertifikat, dan datanya tetap tersimpan."
+            variant="secondary"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

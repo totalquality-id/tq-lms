@@ -244,6 +244,8 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
                   text,
                   correct,
                 })),
+                requiresReason: question.requiresReason,
+                parentId: question.parentId,
                 usageCount: question._count.assessments,
               }}
               course={course}

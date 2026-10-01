@@ -88,6 +88,8 @@ async function pickQuestions(
     points: question.points,
     explanation: question.explanation,
     correctText: question.correctText,
+    requiresReason: question.requiresReason,
+    parentId: question.parentId,
     options: (assessment.randomizeOptions
       ? shuffle(question.options)
       : question.options

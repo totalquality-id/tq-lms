@@ -8,6 +8,11 @@ import {
   reorder,
   type Entity,
 } from "@/services/management";
+import {
+  restoreArchived,
+  deleteArchived,
+  type ArchiveCategory,
+} from "@/services/archive";
 import type { FormState } from "@/schemas/forms";
 import { currentUser } from "@/services/access";
 import { db } from "@/lib/db";
@@ -86,3 +91,28 @@ export async function profileAction(
     return failure(e);
   }
 }
+export async function restoreAction(
+  category: ArchiveCategory,
+  id: string,
+): Promise<FormState> {
+  try {
+    await restoreArchived(category, id);
+    revalidatePath("/", "layout");
+    return { success: "Data berhasil dipulihkan dari arsip." };
+  } catch (e) {
+    return failure(e);
+  }
+}
+export async function deleteAction(
+  category: ArchiveCategory,
+  id: string,
+): Promise<FormState> {
+  try {
+    await deleteArchived(category, id);
+    revalidatePath("/", "layout");
+    return { success: "Data berhasil dihapus permanen." };
+  } catch (e) {
+    return failure(e);
+  }
+}
+

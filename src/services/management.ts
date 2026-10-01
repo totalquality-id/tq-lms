@@ -426,6 +426,18 @@ export async function archiveEntity(entity: Entity, id: string) {
           updatedBy: actor.id,
         },
       });
+    } else if (entity === "batch") {
+      const batch = await tx.trainingBatch.findFirstOrThrow({
+        where: { id, deletedAt: null },
+      });
+      if (["OPEN", "ONGOING"].includes(batch.status))
+        throw new Error(
+          "Training aktif harus ditutup atau dibatalkan sebelum diarsipkan.",
+        );
+      await tx.trainingBatch.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedBy: actor.id },
+      });
     } else throw new Error("Arsip tidak tersedia untuk data ini.");
     await tx.auditLog.create({
       data: { actorId: actor.id, action: "ARCHIVE", entity, entityId: id },

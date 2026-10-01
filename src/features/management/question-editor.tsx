@@ -21,12 +21,16 @@ export type EditableQuestion = {
   explanation: string | null;
   correctText: string | null;
   options: { text: string; correct: boolean }[];
+  requiresReason: boolean;
+  parentId: string | null;
 };
 
 type Props = {
   course: { id: string; title: string };
   topics: string[];
   question?: EditableQuestion;
+  parentId?: string;
+  label?: string;
 };
 
 export function QuestionEditor(props: Props) {
@@ -34,17 +38,17 @@ export function QuestionEditor(props: Props) {
   return (
     <>
       <Button
-        variant={props.question ? "secondary" : "primary"}
-        size={props.question ? "sm" : "md"}
+        variant={props.question ? "secondary" : props.label ? "secondary" : "primary"}
+        size={props.question ? "sm" : props.label ? "sm" : "md"}
         onClick={() => setOpen(true)}
       >
         {props.question ? <Pencil aria-hidden /> : <Plus aria-hidden />}
-        {props.question ? "Edit soal" : "Tambah soal"}
+        {props.question ? "Edit soal" : props.label ?? "Tambah soal"}
       </Button>
       <Dialog
         open={open}
         onOpenChange={setOpen}
-        title={props.question ? "Edit soal" : "Tambah soal"}
+        title={props.question ? "Edit soal" : props.label ?? "Tambah soal"}
         description={props.course.title}
       >
         {open ? <QuestionForm {...props} close={() => setOpen(false)} /> : null}
@@ -57,6 +61,7 @@ function QuestionForm({
   course,
   topics,
   question,
+  parentId,
   close,
 }: Props & { close: () => void }) {
   const prefix = useId();
@@ -76,6 +81,7 @@ function QuestionForm({
   const [points, setPoints] = useState(String(question?.points ?? 1));
   const [explanation, setExplanation] = useState(question?.explanation ?? "");
   const [correctText, setCorrectText] = useState(question?.correctText ?? "");
+  const [requiresReason, setRequiresReason] = useState(question?.requiresReason ?? false);
   const [choices, setChoices] = useState(
     question?.options.length && question.type !== "TRUE_FALSE"
       ? question.options.map((option, index) => ({
@@ -129,6 +135,7 @@ function QuestionForm({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="courseId" value={course.id} />
+      {parentId ? <input type="hidden" name="parentId" value={parentId} /> : null}
       {isChoice ? (
         <input
           type="hidden"
@@ -139,7 +146,7 @@ function QuestionForm({
         />
       ) : null}
       <fieldset disabled={pending} className="space-y-5">
-        <Field label="Pertanyaan" htmlFor={id("text")} required>
+        <Field label={kind === "CASE_STUDY" ? "Teks Case Study" : "Pertanyaan"} htmlFor={id("text")} required>
           <Textarea
             id={id("text")}
             name="text"
@@ -148,7 +155,7 @@ function QuestionForm({
             required
             minLength={5}
             maxLength={5000}
-            placeholder="Tuliskan pertanyaan yang akan dijawab peserta…"
+            placeholder={kind === "CASE_STUDY" ? "Tuliskan cerita atau teks studi kasus…" : "Tuliskan pertanyaan yang akan dijawab peserta…"}
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -290,6 +297,21 @@ function QuestionForm({
                 Tambah pilihan
               </Button>
             ) : null}
+            {kind === "TRUE_FALSE" ? (
+              <div className="pt-2">
+                <label className="flex items-center gap-2 text-sm text-ink-700">
+                  <input
+                    type="checkbox"
+                    name="requiresReason"
+                    value="true"
+                    checked={requiresReason}
+                    onChange={(event) => setRequiresReason(event.target.checked)}
+                    className="size-4 accent-brand-600 rounded border-ink-300"
+                  />
+                  Wajibkan peserta mengisi alasan (opsional)
+                </label>
+              </div>
+            ) : null}
           </fieldset>
         ) : kind === "SHORT_TEXT" ? (
           <Field
@@ -307,6 +329,10 @@ function QuestionForm({
               maxLength={500}
             />
           </Field>
+        ) : kind === "CASE_STUDY" ? (
+          <p className="rounded-lg bg-brand-50 p-4 text-sm text-ink-700">
+            Tipe ini hanya berisi teks. Setelah disimpan, Anda dapat menambahkan sub-soal di bawahnya pada halaman daftar soal.
+          </p>
         ) : (
           <p className="rounded-lg bg-brand-50 p-4 text-sm text-ink-700">
             Peserta menulis jawaban panjang. Trainer memeriksa dan memberi nilai

@@ -46,6 +46,8 @@ export async function saveQuestion(
       type: data.type,
       text: data.text,
       points: data.points,
+      requiresReason: data.requiresReason,
+      parentId: data.parentId || null,
       explanation: data.explanation || null,
       correctText: data.type === "SHORT_TEXT" ? data.correctText : null,
     };

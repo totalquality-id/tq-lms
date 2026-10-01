@@ -55,15 +55,25 @@ export async function submitAttemptAction(
   form: FormData,
 ): Promise<FormState> {
   try {
-    const answers: Record<string, string | string[]> = {};
+    const answers: Record<string, any> = {};
     for (const key of new Set(form.keys())) {
       if (!key.startsWith("q:")) continue;
+      const questionId = key.slice(2);
       const values = form
         .getAll(key)
         .map((value) => String(value))
         .filter((value) => value.length > 0);
       if (!values.length) continue;
-      answers[key.slice(2)] = values.length > 1 ? values : values[0];
+      
+      const answerVal = values.length > 1 ? values : values[0];
+      const reasonKey = `reason-${questionId}`;
+      const reasonVal = form.get(reasonKey);
+
+      if (reasonVal) {
+        answers[questionId] = { answer: answerVal, reason: String(reasonVal) };
+      } else {
+        answers[questionId] = answerVal;
+      }
     }
     const result = await submitAttempt(batchId, attemptId, answers);
     revalidatePath(`/my-training/${batchId}`, "layout");

@@ -2,6 +2,7 @@
 
 import { Dialog } from "radix-ui";
 import {
+  Archive,
   Award,
   Building2,
   ClipboardCheck,
@@ -42,6 +43,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   profile: UserRound,
   review: ClipboardCheck,
   history: Award,
+  archive: Archive,
 };
 
 /**

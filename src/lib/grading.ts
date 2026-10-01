@@ -14,6 +14,8 @@ export type SnapshotQuestion = {
   explanation: string | null;
   options: { id: string; text: string; correct: boolean }[];
   correctText: string | null;
+  requiresReason?: boolean;
+  parentId?: string | null;
 };
 
 /** Bentuk yang dikirim ke peramban: kunci jawaban dibuang. */
@@ -32,6 +34,8 @@ export function visibleQuestions(
     type: question.type,
     text: question.text,
     points: question.points,
+    requiresReason: question.requiresReason,
+    parentId: question.parentId,
     options: question.options.map((option) => ({
       id: option.id,
       text: option.text,
@@ -48,14 +52,24 @@ export function gradeAnswer(
   question: SnapshotQuestion,
   answer: unknown,
 ): number | null {
+  let realAnswer = answer;
+  if (
+    answer &&
+    typeof answer === "object" &&
+    !Array.isArray(answer) &&
+    "answer" in answer
+  ) {
+    realAnswer = (answer as { answer: unknown }).answer;
+  }
+
   if (question.type === "ESSAY") return null;
 
   if (question.type === "SHORT_TEXT") {
-    if (typeof answer !== "string" || !question.correctText) return 0;
+    if (typeof realAnswer !== "string" || !question.correctText) return 0;
     const accepted = question.correctText
       .split("|")
       .map((option) => normalize(option));
-    return accepted.includes(normalize(answer)) ? question.points : 0;
+    return accepted.includes(normalize(realAnswer)) ? question.points : 0;
   }
 
   const correct = question.options
@@ -63,7 +77,7 @@ export function gradeAnswer(
     .map((option) => option.id)
     .sort();
 
-  const given = (Array.isArray(answer) ? answer : [answer])
+  const given = (Array.isArray(realAnswer) ? realAnswer : [realAnswer])
     .filter((value): value is string => typeof value === "string")
     .sort();
 

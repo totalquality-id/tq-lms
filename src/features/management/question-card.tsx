@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { labels } from "@/lib/utils";
 import { QUESTION_TYPE_LABELS } from "@/lib/question-types";
 import { QuestionEditor, type EditableQuestion } from "./question-editor";
+import { Plus } from "lucide-react";
 
 export function QuestionCard({
   question,
@@ -38,6 +39,9 @@ export function QuestionCard({
         </h2>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge tone="info">{QUESTION_TYPE_LABELS[question.type]}</Badge>
+          {question.requiresReason ? (
+            <Badge tone="warning">Wajib Alasan</Badge>
+          ) : null}
           <Badge>{labels[question.difficulty] ?? question.difficulty}</Badge>
           <span className="text-xs text-ink-500">{question.points} poin</span>
           {question.usageCount ? (
@@ -61,6 +65,9 @@ export function QuestionCard({
           {expanded ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
         </Button>
         <div className="flex flex-wrap gap-2">
+          {question.type === "CASE_STUDY" ? (
+            <QuestionEditor course={course} topics={topics} parentId={question.id} label="Tambah sub-soal" />
+          ) : null}
           <QuestionEditor course={course} topics={topics} question={question} />
           <ActionButton
             variant="ghost"

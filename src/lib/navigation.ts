@@ -21,7 +21,8 @@ export type NavIcon =
   | "users"
   | "profile"
   | "review"
-  | "history";
+  | "history"
+  | "archive";
 
 export type NavItem = { href: string; label: string; icon: NavIcon };
 export type NavGroup = { caption?: string; items: NavItem[] };
@@ -95,6 +96,7 @@ export function navigationFor(role: UserRole): NavGroup[] {
         caption: "Administrasi",
         items: [
           { href: "/admin/users", label: "Pengguna", icon: "users" },
+          { href: "/admin/archives", label: "Arsip", icon: "archive" },
           { href: "/profile", label: "Profil saya", icon: "profile" },
         ],
       },
