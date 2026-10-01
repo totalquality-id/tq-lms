@@ -1,10 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
 type SourceCourse = Prisma.CourseGetPayload<{
-  include: { modules: { include: { lessons: true } }; questions: { include: { options: true } } };
+  include: { modules: { include: { lessons: true } } };
 }>;
 
-/** Salin isi, bukan identitas/riwayatnya. Relasi peserta tetap milik training. */
+/** Salin kurikulum, bukan identitas/riwayatnya. Soal disalin oleh syncCopyQuestions. */
 export function courseCopyData(source: SourceCourse, actorId: string) {
   const id = `tc_${crypto.randomUUID()}`;
   return {
@@ -36,26 +36,6 @@ export function courseCopyData(source: SourceCourse, actorId: string) {
             duration: lesson.duration,
             position: lesson.position,
             required: lesson.required,
-          })),
-        },
-      })),
-    },
-    questions: {
-      create: source.questions.filter((question) => !question.deletedAt).map((question) => ({
-        // Pertahankan urutan id sumber untuk pemilihan ALL tanpa pengacakan.
-        id: `${id}_${question.id}`,
-        topic: question.topic,
-        difficulty: question.difficulty,
-        type: question.type,
-        text: question.text,
-        correctText: question.correctText,
-        explanation: question.explanation,
-        points: question.points,
-        options: {
-          create: question.options.map((option) => ({
-            text: option.text,
-            correct: option.correct,
-            position: option.position,
           })),
         },
       })),

@@ -12,6 +12,7 @@ import {
 } from "@/schemas/assessment";
 import { requireAdmin, requireBatchStaff } from "./access";
 import { notifyParticipants } from "./notification";
+import { ensureBatchSynced, syncCopiesOfCourse } from "./course-sync";
 
 /**
  * Menyimpan satu butir soal beserta pilihannya. Pilihan ditulis ulang setiap
@@ -26,12 +27,12 @@ export async function saveQuestion(
   const data = questionSchema.parse(input);
   const choices =
     data.type === "SINGLE_CHOICE" ||
-    data.type === "MULTIPLE_CHOICE" ||
-    data.type === "TRUE_FALSE"
+      data.type === "MULTIPLE_CHOICE" ||
+      data.type === "TRUE_FALSE"
       ? (data.optionItems ?? parseOptions(data.options))
       : [];
 
-  return db.$transaction(async (tx) => {
+  const questionId = await db.$transaction(async (tx) => {
     await tx.course.findFirstOrThrow({
       where: { id: data.courseId, deletedAt: null },
     });
@@ -78,6 +79,17 @@ export async function saveQuestion(
 
     return question.id;
   });
+
+  // Dilakukan setelah transaksi: kegagalan sinkron tidak membatalkan soal yang
+  // sudah tersimpan, dan ensureBatchSynced memperbaikinya saat training dibuka.
+  // Tidak ada efek bila courseId ini adalah salinan, karena salinan tidak punya turunan.
+  try {
+    await syncCopiesOfCourse(data.courseId);
+  } catch (error) {
+    console.error("Sinkron soal ke training gagal:", error);
+  }
+
+  return questionId;
 }
 
 export async function archiveQuestion(id: string) {
@@ -191,6 +203,7 @@ export async function setAssessmentQuestions(
   questionIds: string[],
 ) {
   const { user } = await requireBatchStaff(batchId);
+  await ensureBatchSynced(batchId);
   if (questionIds.length === 0)
     throw new Error("Pilih setidaknya satu soal untuk penilaian ini.");
 
@@ -256,6 +269,7 @@ export async function setSelectionRules(
 ) {
   const { user } = await requireBatchStaff(batchId);
   const rules = selectionRulesSchema.parse(input);
+  await ensureBatchSynced(batchId);
 
   const assessment = await db.assessment.findFirstOrThrow({
     where: { id: assessmentId, batchId, deletedAt: null },
@@ -300,6 +314,7 @@ export async function setSelectionRules(
 
 /** Topik pada bank soal course sebuah training, beserta jumlah soalnya. */
 export async function courseTopics(batchId: string) {
+  await ensureBatchSynced(batchId);
   const batch = await db.trainingBatch.findUniqueOrThrow({
     where: { id: batchId },
     select: { courseId: true },
@@ -313,6 +328,7 @@ export async function courseTopics(batchId: string) {
 
 /** Bank soal course sebuah training, untuk formulir pemilihan manual. */
 export async function courseQuestions(batchId: string) {
+  await ensureBatchSynced(batchId);
   const batch = await db.trainingBatch.findUniqueOrThrow({
     where: { id: batchId },
     select: { courseId: true },
@@ -354,11 +370,11 @@ export function questionWhere(
     ...(filters.difficulty ? { difficulty: filters.difficulty } : {}),
     ...(filters.q
       ? {
-          OR: [
-            { text: { contains: filters.q, mode: "insensitive" as const } },
-            { topic: { contains: filters.q, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { text: { contains: filters.q, mode: "insensitive" as const } },
+          { topic: { contains: filters.q, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 }

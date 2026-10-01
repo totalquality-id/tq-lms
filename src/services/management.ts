@@ -13,6 +13,8 @@ import {
   batchSchema,
   lessonSchema,
 } from "@/schemas/forms";
+import { syncCopyQuestions } from "@/services/course-sync";
+
 import { z } from "zod";
 export type Entity =
   | "organization"
@@ -41,12 +43,12 @@ export async function saveEntity(
           });
         const record = id
           ? await tx.organization.update({
-              where: { id },
-              data: { ...data, updatedBy: actor.id },
-            })
+            where: { id },
+            data: { ...data, updatedBy: actor.id },
+          })
           : await tx.organization.create({
-              data: { ...data, createdBy: actor.id },
-            });
+            data: { ...data, createdBy: actor.id },
+          });
         entityId = record.id;
       } else if (entity === "user") {
         const data = userSchema.parse(input);
@@ -73,12 +75,12 @@ export async function saveEntity(
           throw new Error("Akun demo tidak dapat ditautkan ke akun produksi.");
         const record = id
           ? await tx.user.update({
-              where: { id },
-              data: { ...fields, authId: authId || null, updatedBy: actor.id },
-            })
+            where: { id },
+            data: { ...fields, authId: authId || null, updatedBy: actor.id },
+          })
           : await tx.user.create({
-              data: { ...fields, authId: authId || null, createdBy: actor.id },
-            });
+            data: { ...fields, authId: authId || null, createdBy: actor.id },
+          });
         entityId = record.id;
         if (
           existing &&
@@ -134,12 +136,12 @@ export async function saveEntity(
           crypto.randomUUID().slice(0, 6);
         const record = id
           ? await tx.course.update({
-              where: { id },
-              data: { ...data, updatedBy: actor.id },
-            })
+            where: { id },
+            data: { ...data, updatedBy: actor.id },
+          })
           : await tx.course.create({
-              data: { ...data, slug, createdBy: actor.id },
-            });
+            data: { ...data, slug, createdBy: actor.id },
+          });
         entityId = record.id;
       } else if (entity === "batch") {
         const { trainerId, ...data } = batchSchema.parse(input);
@@ -200,12 +202,10 @@ export async function saveEntity(
         if (!old || old.courseId !== data.courseId) {
           const source = await tx.course.findFirstOrThrow({
             where: { id: data.courseId, sourceCourseId: null, deletedAt: null },
-            include: {
-              modules: { include: { lessons: true } },
-              questions: { include: { options: true } },
-            },
+            include: { modules: { include: { lessons: true } } },
           });
           const copy = await tx.course.create({ data: courseCopyData(source, actor.id) });
+          await syncCopyQuestions(tx, copy.id);
           values.courseId = copy.id;
           if (old) await tx.course.update({
             where: { id: old.courseId },
@@ -214,16 +214,16 @@ export async function saveEntity(
         }
         const record = id
           ? await tx.trainingBatch.update({
-              where: { id },
-              data: { ...values, updatedBy: actor.id },
-            })
+            where: { id },
+            data: { ...values, updatedBy: actor.id },
+          })
           : await tx.trainingBatch.create({
-              data: {
-                ...values,
-                code: `TQI-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
-                createdBy: actor.id,
-              },
-            });
+            data: {
+              ...values,
+              code: `TQI-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
+              createdBy: actor.id,
+            },
+          });
         entityId = record.id;
         if (trainerId)
           await tx.trainingBatchTrainer.upsert({

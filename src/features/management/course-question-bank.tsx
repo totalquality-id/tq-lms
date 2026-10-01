@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { QUESTION_TYPE_LABELS } from "@/lib/question-types";
 import { requireAdmin } from "@/services/access";
 import { questionWhere } from "@/services/question-bank";
+import { ensureBatchSynced } from "@/services/course-sync";
 
 export type QuestionBankFilters = {
   q?: string;
@@ -28,6 +29,7 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
   batchId?: string;
 }) {
   await requireAdmin();
+  if (batchId) await ensureBatchSynced(batchId);
   const course = await db.course.findFirst({
     where: { id: courseId, deletedAt: null, ...(batchId ? { batches: { some: { id: batchId, deletedAt: null } } } : { sourceCourseId: null }) },
     select: { id: true, title: true },
