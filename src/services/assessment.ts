@@ -386,7 +386,7 @@ export async function gradeEssay(
         where: { attemptId: answer.attemptId },
       });
       const essayIds = snapshot
-        .filter((item) => item.type === "ESSAY")
+        .filter((item) => item.type !== "SINGLE_CHOICE" && item.type !== "TRUE_FALSE" && item.type !== "CASE_STUDY")
         .map((item) => item.id);
       const outstanding = essayIds.some((id) => {
         const item = answers.find((row) => row.questionId === id);

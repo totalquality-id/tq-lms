@@ -42,11 +42,32 @@ export default async function ReviewsPage() {
     if (!attempt) return [];
     const snapshot = attempt.questionSnapshot as unknown as SnapshotQuestion[];
     const question = snapshot.find((item) => item.id === answer.questionId);
-    if (!question || question.type !== "ESSAY") return [];
+    if (!question || question.type === "SINGLE_CHOICE" || question.type === "TRUE_FALSE" || question.type === "CASE_STUDY") return [];
     return [{ answer, attempt, question }];
   });
 
   const empty = !submissions.length && !essays.length;
+
+  function FormatAnswer({ answer, question }: { answer: any; question: SnapshotQuestion }) {
+    let val = answer;
+    if (val && typeof val === "object" && !Array.isArray(val) && "answer" in val) {
+      val = val.answer;
+    }
+    
+    if (Array.isArray(val)) {
+      const texts = val.map(v => {
+        const opt = question.options.find(o => o.id === v);
+        return opt ? opt.text : String(v);
+      });
+      return <ul className="list-disc pl-4 mt-2 space-y-1">{texts.map((t, i) => <li key={i}>{t}</li>)}</ul>;
+    }
+    
+    if (typeof val === "string") {
+      return <>{val}</>;
+    }
+
+    return <>{JSON.stringify(val)}</>;
+  }
 
   return (
     <div className="space-y-6">
@@ -67,8 +88,8 @@ export default async function ReviewsPage() {
       {essays.length ? (
         <section>
           <SectionHeader
-            title="Jawaban esai"
-            description="Nilai akhir percobaan dihitung ulang setelah seluruh esainya dinilai."
+            title="Jawaban menunggu nilai"
+            description="Nilai akhir percobaan dihitung ulang setelah seluruh jawaban manualnya dinilai."
           />
           <Card>
             <ul className="divide-y divide-ink-100">
@@ -91,14 +112,12 @@ export default async function ReviewsPage() {
                         {question.text}
                       </p>
                       <blockquote className="mt-2 border-l-2 border-ink-300 pl-3 text-sm leading-relaxed whitespace-pre-line text-ink-600">
-                        {typeof answer.answer === "string"
-                          ? answer.answer
-                          : JSON.stringify(answer.answer)}
+                        <FormatAnswer answer={answer.answer} question={question} />
                       </blockquote>
                     </div>
                     <DialogForm
                       action={gradeEssayAction.bind(null, answer.id)}
-                      title="Nilai jawaban esai"
+                      title="Nilai jawaban manual"
                       description={`Bobot soal ${question.points} poin.`}
                       fields={[
                         {

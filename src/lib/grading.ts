@@ -43,11 +43,7 @@ export function visibleQuestions(
   }));
 }
 
-function normalize(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/** Menilai satu soal objektif. Esai mengembalikan null: menunggu trainer. */
+/** Menilai satu soal objektif. Semua selain SINGLE_CHOICE dan TRUE_FALSE mengembalikan null: menunggu trainer. */
 export function gradeAnswer(
   question: SnapshotQuestion,
   answer: unknown,
@@ -62,14 +58,11 @@ export function gradeAnswer(
     realAnswer = (answer as { answer: unknown }).answer;
   }
 
-  if (question.type === "ESSAY") return null;
-
-  if (question.type === "SHORT_TEXT") {
-    if (typeof realAnswer !== "string" || !question.correctText) return 0;
-    const accepted = question.correctText
-      .split("|")
-      .map((option) => normalize(option));
-    return accepted.includes(normalize(realAnswer)) ? question.points : 0;
+  if (
+    question.type !== "SINGLE_CHOICE" &&
+    question.type !== "TRUE_FALSE"
+  ) {
+    return null;
   }
 
   const correct = question.options
@@ -81,13 +74,6 @@ export function gradeAnswer(
     .filter((value): value is string => typeof value === "string")
     .sort();
 
-  if (question.type === "MULTIPLE_CHOICE")
-    // Pilihan ganda dinilai utuh: satu pilihan keliru membatalkan nilai soal,
-    // sehingga menandai semua pilihan tidak pernah menguntungkan.
-    return given.length === correct.length &&
-      given.every((value, index) => value === correct[index])
-      ? question.points
-      : 0;
 
   return given.length === 1 && correct.includes(given[0]) ? question.points : 0;
 }
