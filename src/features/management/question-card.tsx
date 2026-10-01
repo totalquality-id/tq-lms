@@ -20,7 +20,7 @@ export function QuestionCard({
   question: EditableQuestion & { usageCount: number };
   course: { id: string; title: string };
   topics: string[];
-  number: number;
+  number: number | string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
@@ -127,6 +127,24 @@ export function QuestionCard({
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink-600">
               {question.explanation}
             </p>
+          </div>
+        ) : null}
+        {question.type === "CASE_STUDY" && question.children && question.children.length > 0 ? (
+          <div className="mt-6 border-t border-ink-100 pt-4">
+            <h3 className="text-sm font-semibold text-ink-900 mb-4">
+              Sub-soal ({question.children.length})
+            </h3>
+            <div className="space-y-4">
+              {question.children.map((child, index) => (
+                <QuestionCard
+                  key={child.id}
+                  question={child as EditableQuestion & { usageCount: number }}
+                  course={course}
+                  topics={topics}
+                  number={`${number}.${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

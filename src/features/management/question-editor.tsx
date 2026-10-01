@@ -23,6 +23,7 @@ export type EditableQuestion = {
   options: { text: string; correct: boolean }[];
   requiresReason: boolean;
   parentId: string | null;
+  children?: EditableQuestion[];
 };
 
 type Props = {

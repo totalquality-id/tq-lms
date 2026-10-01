@@ -53,10 +53,10 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
   };
   const where = questionWhere({ ...activeFilters, courseId });
   const [total, topics] = await Promise.all([
-    db.question.count({ where }),
+    db.question.count({ where: { ...where, parentId: null } }),
     db.question.groupBy({
       by: ["topic"],
-      where: { courseId, deletedAt: null },
+      where: { courseId, deletedAt: null, parentId: null },
       _count: { _all: true },
       orderBy: { topic: "asc" },
     }),
@@ -66,10 +66,18 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
     Math.max(1, Math.ceil(total / PAGE_SIZE)),
   );
   const questions = await db.question.findMany({
-    where,
+    where: { ...where, parentId: null },
     include: {
       options: { orderBy: { position: "asc" } },
       _count: { select: { assessments: true } },
+      children: {
+        where: { deletedAt: null },
+        include: {
+          options: { orderBy: { position: "asc" } },
+          _count: { select: { assessments: true } },
+        },
+        orderBy: { id: "asc" },
+      },
     },
     orderBy: [{ topic: "asc" }, { id: "asc" }],
     skip: (page - 1) * PAGE_SIZE,
@@ -249,6 +257,23 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
                 requiresReason: question.requiresReason,
                 parentId: question.parentId,
                 usageCount: question._count.assessments,
+                children: question.children?.map(child => ({
+                  id: child.id,
+                  text: child.text,
+                  topic: child.topic,
+                  difficulty: child.difficulty,
+                  type: child.type,
+                  points: child.points,
+                  explanation: child.explanation,
+                  correctText: child.correctText,
+                  options: child.options.map(({ text, correct }) => ({
+                    text,
+                    correct,
+                  })),
+                  requiresReason: child.requiresReason,
+                  parentId: child.parentId,
+                  usageCount: child._count.assessments,
+                })),
               }}
               course={course}
               topics={topicNames}
