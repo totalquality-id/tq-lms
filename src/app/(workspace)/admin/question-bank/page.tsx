@@ -63,7 +63,9 @@ export default async function QuestionBankPage({
         id: true,
         title: true,
         category: true,
-        _count: { select: { questions: { where: { deletedAt: null } } } },
+        _count: {
+          select: { questions: { where: { deletedAt: null, parentId: null } } },
+        },
       },
       orderBy: [{ title: "asc" }, { id: "asc" }],
       skip: (page - 1) * PAGE_SIZE,
@@ -77,6 +79,7 @@ export default async function QuestionBankPage({
         where: {
           courseId: { in: courses.map((course) => course.id) },
           deletedAt: null,
+          parentId: null,
         },
       })
     : [];

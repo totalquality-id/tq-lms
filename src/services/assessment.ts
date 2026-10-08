@@ -5,8 +5,9 @@ import { Prisma, type QuestionType } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import {
-  bestScore,
+  attemptScore,
   gradeAnswer,
+  isAnswerable,
   visibleQuestions,
   type SnapshotQuestion,
 } from "@/lib/grading";
@@ -65,7 +66,13 @@ async function pickQuestions(
     }
   }
 
-  const topLevelBank = allBank.filter((q) => !q.parentId);
+  // Studi kasus yang tidak lagi punya sub-soal aktif hanya berisi teks tanpa
+  // pertanyaan, jadi tidak ikut diundi.
+  const topLevelBank = allBank.filter(
+    (q) =>
+      !q.parentId &&
+      (q.type !== "CASE_STUDY" || childrenByParent.has(q.id)),
+  );
   // Daftar manual disusun ulang menurut bank soal, sehingga daftar lama yang
   // tersimpan dalam urutan lain pun ikut urutan acuan.
   const chosen = new Set(assessment.questions.map((link) => link.questionId));
@@ -229,38 +236,28 @@ async function finalize(tx: Prisma.TransactionClient, attemptId: string) {
   if (attempt.submittedAt) return attempt;
 
   const snapshot = attempt.questionSnapshot as unknown as SnapshotQuestion[];
-  const totalPoints = snapshot.reduce(
-    (sum, question) => sum + question.points,
-    0,
-  );
+  const byId = new Map(snapshot.map((question) => [question.id, question]));
 
-  let earned = 0;
-  let pending = false;
-  for (const question of snapshot) {
-    const answer = attempt.answers.find(
-      (item) => item.questionId === question.id,
-    );
-    const score = answer ? gradeAnswer(question, answer.answer) : 0;
-    if (score === null) {
-      pending = true;
-      continue;
-    }
-    earned += score;
-    if (answer && answer.score === null)
+  const scores = new Map<string, number | null>();
+  for (const answer of attempt.answers) {
+    const question = byId.get(answer.questionId);
+    if (!question || !isAnswerable(question)) continue;
+    const score = answer.score ?? gradeAnswer(question, answer.answer);
+    scores.set(question.id, score);
+    if (score !== null && answer.score === null)
       await tx.assessmentAnswer.update({
         where: { id: answer.id },
         data: { score },
       });
   }
 
-  const score = totalPoints ? (earned / totalPoints) * 100 : 0;
-
+  // Nilai esai belum masuk, jadi kelulusan sengaja dikosongkan sampai
+  // trainer selesai memeriksa. Angka sementara akan menyesatkan.
+  const { pending, score } = attemptScore(snapshot, scores);
   return tx.assessmentAttempt.update({
     where: { id: attemptId },
     data: {
       submittedAt: new Date(),
-      // Nilai esai belum masuk, jadi kelulusan sengaja dikosongkan sampai
-      // trainer selesai memeriksa. Angka sementara akan menyesatkan.
       score: pending ? null : score,
       passed: pending ? null : score >= attempt.assessment.passingGrade,
     },
@@ -346,10 +343,13 @@ export async function pendingReviews(trainerId: string, admin: boolean) {
 }
 
 /**
- * Menyimpan nilai esai. Setelah tidak ada lagi jawaban tanpa nilai, nilai
- * percobaan dihitung ulang dan kelulusannya ditetapkan.
+ * Menyimpan nilai satu jawaban dari trainer: menilai esai, atau mengoreksi
+ * nilai otomatis (misalnya isian singkat yang benar tetapi ditulis berbeda,
+ * atau alasan Benar/Salah yang tidak mendukung jawabannya). Nilai percobaan
+ * dihitung ulang setiap kali; selama masih ada esai yang belum dinilai,
+ * nilainya tetap kosong.
  */
-export async function gradeEssay(
+export async function reviewAnswer(
   answerId: string,
   score: number,
   feedback: string,
@@ -363,7 +363,6 @@ export async function gradeEssay(
         include: {
           attempt: {
             include: {
-              answers: true,
               enrollment: true,
               assessment: {
                 include: { batch: { include: { trainers: true } } },
@@ -373,19 +372,21 @@ export async function gradeEssay(
         },
       });
 
-      const batch = answer.attempt.assessment.batch;
+      const { attempt } = answer;
+      const batch = attempt.assessment.batch;
       const allowed =
         user.role === "ADMIN" ||
         user.role === "SUPER_ADMIN" ||
         batch.trainers.some((link) => link.trainerId === user.id);
       if (!allowed) throw new Error("Anda tidak menilai training ini.");
+      if (!attempt.submittedAt)
+        throw new Error("Percobaan ini belum dikirim peserta.");
 
-      const snapshot = answer.attempt
-        .questionSnapshot as unknown as SnapshotQuestion[];
+      const snapshot = attempt.questionSnapshot as unknown as SnapshotQuestion[];
       const question = snapshot.find((item) => item.id === answer.questionId);
-      if (!question)
+      if (!question || !isAnswerable(question))
         throw new Error("Soal tidak ditemukan pada percobaan ini.");
-      if (score < 0 || score > question.points)
+      if (!Number.isFinite(score) || score < 0 || score > question.points)
         throw new Error(`Nilai harus antara 0 dan ${question.points}.`);
 
       await tx.assessmentAnswer.update({
@@ -399,53 +400,92 @@ export async function gradeEssay(
       });
 
       const answers = await tx.assessmentAnswer.findMany({
-        where: { attemptId: answer.attemptId },
+        where: { attemptId: attempt.id },
+        select: { questionId: true, score: true },
       });
-      const essayIds = snapshot
-        .filter((item) => item.type !== "SINGLE_CHOICE" && item.type !== "TRUE_FALSE" && item.type !== "CASE_STUDY")
-        .map((item) => item.id);
-      const outstanding = essayIds.some((id) => {
-        const item = answers.find((row) => row.questionId === id);
-        return !item || item.score === null;
-      });
-      if (outstanding) return;
-
-      const totalPoints = snapshot.reduce((sum, item) => sum + item.points, 0);
-      const earned = answers.reduce((sum, item) => sum + (item.score ?? 0), 0);
-      const value = totalPoints ? (earned / totalPoints) * 100 : 0;
+      const { pending, score: value } = attemptScore(
+        snapshot,
+        new Map(answers.map((row) => [row.questionId, row.score])),
+      );
 
       await tx.assessmentAttempt.update({
-        where: { id: answer.attemptId },
+        where: { id: attempt.id },
         data: {
-          score: value,
-          passed: value >= answer.attempt.assessment.passingGrade,
+          score: pending ? null : value,
+          passed: pending ? null : value >= attempt.assessment.passingGrade,
         },
       });
 
       await tx.auditLog.create({
         data: {
           actorId: user.id,
-          action: "GRADE_ESSAY",
+          action: "REVIEW_ANSWER",
           entity: "assessmentAttempt",
-          entityId: answer.attemptId,
-          metadata: { score: value },
+          entityId: attempt.id,
+          metadata: {
+            answerId,
+            questionId: answer.questionId,
+            from: answer.score,
+            to: score,
+            attemptScore: pending ? null : value,
+          },
         },
       });
 
-      // Dikabarkan hanya ketika esai terakhir selesai diperiksa, yaitu saat
-      // nilai percobaannya benar-benar ada. Memberi tahu setiap kali satu esai
-      // dinilai akan mengirim beberapa kabar untuk satu ujian yang sama.
-      await notify(
-        answer.attempt.enrollment.participantId,
-        {
-          title: "Hasil ujian tersedia",
-          message: `${answer.attempt.assessment.title} sudah selesai diperiksa.`,
-          href: `/my-training/${batch.id}/assessment/${answer.attempt.assessmentId}`,
-          email: true,
-        },
-        tx,
-      );
+      // Dikabarkan hanya ketika nilai percobaan baru saja tersedia. Koreksi
+      // atas nilai yang sudah ada, atau setiap esai yang dinilai satu per
+      // satu, tidak mengirim kabar berulang untuk ujian yang sama.
+      if (attempt.score === null && !pending)
+        await notify(
+          attempt.enrollment.participantId,
+          {
+            title: "Hasil ujian tersedia",
+            message: `${attempt.assessment.title} sudah selesai diperiksa.`,
+            href: `/my-training/${batch.id}/assessment/${attempt.assessmentId}`,
+            email: true,
+          },
+          tx,
+        );
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+}
+
+/**
+ * Satu percobaan yang sudah dikirim, untuk diperiksa staf training: soal
+ * sebagaimana dibekukan, jawaban peserta, dan nilai per soal.
+ */
+export async function attemptForStaff(batchId: string, attemptId: string) {
+  await requireBatchStaff(batchId);
+  const attempt = await db.assessmentAttempt.findFirst({
+    where: {
+      id: attemptId,
+      submittedAt: { not: null },
+      assessment: { batchId },
+    },
+    include: {
+      answers: true,
+      assessment: { select: { id: true, title: true, passingGrade: true } },
+      enrollment: {
+        select: { participant: { select: { name: true, email: true } } },
+      },
+    },
+  });
+  if (!attempt) notFound();
+
+  const others = await db.assessmentAttempt.findMany({
+    where: {
+      assessmentId: attempt.assessmentId,
+      enrollmentId: attempt.enrollmentId,
+      submittedAt: { not: null },
+    },
+    select: { id: true, attemptNumber: true, score: true },
+    orderBy: { attemptNumber: "asc" },
+  });
+
+  return {
+    attempt,
+    snapshot: attempt.questionSnapshot as unknown as SnapshotQuestion[],
+    others,
+  };
 }

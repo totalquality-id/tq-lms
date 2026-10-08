@@ -1,3 +1,4 @@
+import Link from "@/components/ui/navigation-link";
 import { archiveAssessmentAction, assessmentAction } from "@/app/staff-actions";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/ui/action-button";
@@ -19,10 +20,12 @@ import { courseQuestions, courseTopics } from "@/services/question-bank";
 import { ManualQuestionPicker, SelectionRulesForm } from "./question-selection";
 
 export async function ManageAssessments({
+  base,
   id,
   page,
   q,
 }: {
+  base: string;
   id: string;
   page: number;
   q?: string;
@@ -235,8 +238,9 @@ export async function ManageAssessments({
         <CardBody className="border-t border-ink-200">
           {bankSize ? (
             <p className="text-xs text-ink-500">
-              Bank soal course ini berisi {bankSize} soal. Penilaian mengambil
-              soal dari bank tersebut saat percobaan dimulai.
+              Bank soal course ini berisi {bankSize} soal utama; studi kasus
+              dihitung satu beserta sub-soalnya. Penilaian mengambil soal dari
+              bank tersebut saat percobaan dimulai.
             </p>
           ) : (
             <Note>
@@ -252,7 +256,7 @@ export async function ManageAssessments({
         <Card>
           <CardHeader
             title="Nilai peserta"
-            description="Nilai terbaik setiap peserta pada tiap penilaian."
+            description="Nilai terbaik setiap peserta pada tiap penilaian. Buka nilai untuk melihat jawaban dan mengoreksinya."
           />
           <FilterBar q={q} placeholder="Cari nama peserta…" />
           <TableWrap>
@@ -281,17 +285,33 @@ export async function ManageAssessments({
                         (attempt) => attempt.submittedAt,
                       );
                       const score = bestScore(attempts);
+                      // Tautan menuju percobaan yang nilainya ditampilkan,
+                      // atau yang terakhir dikirim bila belum ada nilai.
+                      const shown =
+                        submitted.find((attempt) => attempt.score === score) ??
+                        submitted.at(-1);
+                      const href = shown
+                        ? `${base}/${id}/assessments/attempt/${shown.id}`
+                        : null;
                       return (
                         <Td
                           key={assessment.id}
                           className="tabular text-right text-sm"
                         >
-                          {score !== null ? (
-                            Math.round(score)
-                          ) : submitted.length ? (
-                            <span className="text-xs text-[var(--color-warning)]">
-                              Perlu dinilai
-                            </span>
+                          {href ? (
+                            <Link
+                              href={href}
+                              className="text-brand-700 hover:underline"
+                              title="Lihat jawaban"
+                            >
+                              {score !== null ? (
+                                Math.round(score)
+                              ) : (
+                                <span className="text-xs text-[var(--color-warning)]">
+                                  Perlu dinilai
+                                </span>
+                              )}
+                            </Link>
                           ) : (
                             <span className="text-ink-400">—</span>
                           )}

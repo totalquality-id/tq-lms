@@ -256,7 +256,10 @@ export async function batchAssessments(id: string, paging: Paging = {}) {
           id: true,
           participant: { select: { name: true } },
           attempts: {
+            orderBy: { attemptNumber: "asc" },
             select: {
+              id: true,
+              attemptNumber: true,
               assessmentId: true,
               score: true,
               passed: true,

@@ -432,8 +432,10 @@ export async function setSelectionRules(
     include: { batch: { select: { courseId: true } } },
   });
 
+  // Aturan menghitung soal utama: studi kasus dihitung satu beserta
+  // sub-soalnya, sama seperti saat soal diundi untuk peserta.
   const bank = await db.question.findMany({
-    where: { courseId: assessment.batch.courseId, deletedAt: null },
+    where: { courseId: assessment.batch.courseId, deletedAt: null, parentId: null },
     select: { id: true, topic: true },
   });
 
@@ -476,7 +478,7 @@ export async function courseTopics(batchId: string) {
     select: { courseId: true },
   });
   const bank = await db.question.findMany({
-    where: { courseId: batch.courseId, deletedAt: null },
+    where: { courseId: batch.courseId, deletedAt: null, parentId: null },
     select: { id: true, topic: true },
   });
   return topicCounts(bank);

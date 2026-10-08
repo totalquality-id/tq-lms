@@ -103,7 +103,7 @@ export function assessmentFields(data?: {
       min: 0,
       max: 200,
       defaultValue: data?.questionLimit ?? 0,
-      help: "Hanya berlaku untuk sumber “Seluruh bank soal”. Isi 0 untuk memakai semuanya.",
+      help: "Hanya berlaku untuk sumber “Seluruh bank soal”. Studi kasus dihitung satu beserta sub-soalnya. Isi 0 untuk memakai semuanya.",
     },
     {
       name: "startsAt",

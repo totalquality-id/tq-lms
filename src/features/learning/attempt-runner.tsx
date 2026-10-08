@@ -8,6 +8,7 @@ import { submitAttemptAction } from "@/app/learning-actions";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/field";
 import type { VisibleQuestion } from "@/services/assessment";
+import { isAnswerable } from "@/lib/grading";
 import { AssessmentQuestions } from "./assessment-questions";
 
 function remainingText(ms: number) {
@@ -76,7 +77,8 @@ export function AttemptRunner({
       <div className="sticky top-14 z-30 -mx-4 border-b border-ink-200 bg-white/95 px-4 py-2.5 backdrop-blur sm:mx-0 sm:rounded-[var(--radius-card)] sm:border">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-ink-600">
-            {questions.length} soal · jawaban tersimpan saat dikirim
+            {questions.filter(isAnswerable).length} soal · jawaban tersimpan
+            saat dikirim
           </span>
           <span
             aria-live="polite"

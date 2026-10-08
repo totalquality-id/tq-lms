@@ -5,7 +5,7 @@ import { previewAssessmentAction } from "@/app/staff-actions";
 import { Button } from "@/components/ui/button";
 import { FormError, Note } from "@/components/ui/field";
 import { AssessmentQuestions } from "@/features/learning/assessment-questions";
-import type { VisibleQuestion } from "@/lib/grading";
+import { isAnswerable, type VisibleQuestion } from "@/lib/grading";
 import { minutes } from "@/lib/utils";
 
 export function AssessmentPreview({
@@ -75,7 +75,8 @@ export function AssessmentPreview({
       {questions ? (
         <>
           <p className="text-sm text-ink-600">
-            {questions.length} soal · jawaban preview tidak disimpan
+            {questions.filter(isAnswerable).length} soal · jawaban preview
+            tidak disimpan
           </p>
           <AssessmentQuestions questions={questions} />
           <div className="flex justify-end">

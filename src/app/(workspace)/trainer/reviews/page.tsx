@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/ui/navigation-link";
 
-import { gradeEssayAction, reviewSubmissionAction } from "@/app/staff-actions";
+import { reviewAnswerAction, reviewSubmissionAction } from "@/app/staff-actions";
 import { PageHeader, SectionHeader } from "@/components/layout/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { dateTime } from "@/lib/utils";
 import { currentUser } from "@/services/access";
 import { pendingReviews, type SnapshotQuestion } from "@/services/assessment";
+import { answerParts, isAnswerable, questionNumbers } from "@/lib/grading";
 import { pendingSubmissions } from "@/services/operations";
 
 export const metadata: Metadata = { title: "Penilaian" };
@@ -29,7 +30,9 @@ export default async function ReviewsPage() {
     pendingReviews(user.id, admin),
   ]);
 
-  // Jawaban esai yang belum dinilai, diambil bersama soalnya dari snapshot.
+  // Jawaban yang belum dinilai, diambil bersama soalnya dari snapshot. Selain
+  // esai, ini juga menampung jawaban lama dari masa ketika pilihan ganda dan
+  // isian singkat masih dinilai manual.
   const answers = await db.assessmentAnswer.findMany({
     where: {
       attemptId: { in: attempts.map((attempt) => attempt.id) },
@@ -42,31 +45,36 @@ export default async function ReviewsPage() {
     if (!attempt) return [];
     const snapshot = attempt.questionSnapshot as unknown as SnapshotQuestion[];
     const question = snapshot.find((item) => item.id === answer.questionId);
-    if (!question || question.type === "SINGLE_CHOICE" || question.type === "TRUE_FALSE" || question.type === "CASE_STUDY") return [];
-    return [{ answer, attempt, question }];
+    if (!question || !isAnswerable(question)) return [];
+    const parent = question.parentId
+      ? snapshot.find((item) => item.id === question.parentId)
+      : undefined;
+    const number = questionNumbers(snapshot).get(question.id);
+    return [{ answer, attempt, question, parent, number }];
   });
 
   const empty = !submissions.length && !essays.length;
 
-  function FormatAnswer({ answer, question }: { answer: any; question: SnapshotQuestion }) {
-    let val = answer;
-    if (val && typeof val === "object" && !Array.isArray(val) && "answer" in val) {
-      val = val.answer;
-    }
-    
-    if (Array.isArray(val)) {
-      const texts = val.map(v => {
-        const opt = question.options.find(o => o.id === v);
-        return opt ? opt.text : String(v);
-      });
-      return <ul className="list-disc pl-4 mt-2 space-y-1">{texts.map((t, i) => <li key={i}>{t}</li>)}</ul>;
-    }
-    
-    if (typeof val === "string") {
-      return <>{val}</>;
-    }
-
-    return <>{JSON.stringify(val)}</>;
+  function FormatAnswer({ answer, question }: { answer: unknown; question: SnapshotQuestion }) {
+    const { answer: value, reason } = answerParts(answer);
+    const values = Array.isArray(value) ? value : [value];
+    const text = question.options.length
+      ? values.map((item) => question.options.find((option) => option.id === item)?.text ?? String(item))
+      : values.map(String);
+    return (
+      <>
+        {text.length > 1 ? (
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            {text.map((item, index) => <li key={index}>{item}</li>)}
+          </ul>
+        ) : (
+          text[0]
+        )}
+        {reason ? (
+          <span className="mt-2 block text-xs text-ink-500">Alasan: {reason}</span>
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -93,7 +101,7 @@ export default async function ReviewsPage() {
           />
           <Card>
             <ul className="divide-y divide-ink-100">
-              {essays.map(({ answer, attempt, question }) => (
+              {essays.map(({ answer, attempt, question, parent, number }) => (
                 <li key={answer.id} className="px-4 py-4 sm:px-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -102,13 +110,26 @@ export default async function ReviewsPage() {
                       </p>
                       <p className="mt-0.5 text-xs text-ink-500">
                         {attempt.assessment.batch.title} ·{" "}
-                        {attempt.assessment.title} · percobaan #
-                        {attempt.attemptNumber} ·{" "}
+                        {attempt.assessment.title} ·{" "}
+                        <Link
+                          href={`${admin ? "/admin" : "/trainer"}/training/${attempt.assessment.batch.id}/assessments/attempt/${attempt.id}`}
+                          className="hover:text-brand-600 hover:underline"
+                        >
+                          percobaan #{attempt.attemptNumber}
+                        </Link>{" "}
+                        ·{" "}
                         {attempt.submittedAt
                           ? dateTime(attempt.submittedAt)
                           : "—"}
                       </p>
+                      {parent ? (
+                        <details className="mt-2 text-xs text-ink-600">
+                          <summary className="cursor-pointer">Teks studi kasus</summary>
+                          <p className="mt-1 whitespace-pre-line">{parent.text}</p>
+                        </details>
+                      ) : null}
                       <p className="mt-2 text-sm leading-relaxed text-ink-800">
+                        <span className="font-semibold">Soal {number}.</span>{" "}
                         {question.text}
                       </p>
                       <blockquote className="mt-2 border-l-2 border-ink-300 pl-3 text-sm leading-relaxed whitespace-pre-line text-ink-600">
@@ -116,7 +137,7 @@ export default async function ReviewsPage() {
                       </blockquote>
                     </div>
                     <DialogForm
-                      action={gradeEssayAction.bind(null, answer.id)}
+                      action={reviewAnswerAction.bind(null, answer.id)}
                       title="Nilai jawaban manual"
                       description={`Bobot soal ${question.points} poin.`}
                       fields={[

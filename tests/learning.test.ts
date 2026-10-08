@@ -5,7 +5,12 @@ import { calendarDate, calendarKey, daysBetween } from "@/lib/utils";
 import { questionSchema, parseOptions } from "@/schemas/assessment";
 import { toCsv } from "@/lib/csv";
 import { checkEligibility, type EligibilityInput } from "@/lib/eligibility";
-import { gradeAnswer, type SnapshotQuestion } from "@/lib/grading";
+import {
+  attemptScore,
+  gradeAnswer,
+  questionNumbers,
+  type SnapshotQuestion,
+} from "@/lib/grading";
 import {
   attendanceRate,
   buildProgress,
@@ -117,6 +122,57 @@ test("essays are left for a human to grade", () => {
     gradeAnswer(question({ type: "ESSAY", options: [] }), "…"),
     null,
   );
+});
+
+test("an answer submitted with a reason is graded on the answer alone", () => {
+  const item = question({ type: "TRUE_FALSE", requiresReason: true });
+  assert.equal(gradeAnswer(item, { answer: "a", reason: "Karena…" }), 2);
+  assert.equal(gradeAnswer(item, { answer: "b", reason: "Karena…" }), 0);
+});
+
+test("case study text is neither answered nor scored", () => {
+  const caseStudy = question({ id: "cs", type: "CASE_STUDY", points: 1, options: [] });
+  const sub = question({ id: "s1", parentId: "cs" });
+  // Poin lama yang tertinggal pada teks kasus tidak boleh membuat nilai
+  // maksimal di bawah 100.
+  assert.deepEqual(
+    attemptScore([caseStudy, sub], new Map([["s1", 2]])),
+    { pending: false, score: 100 },
+  );
+});
+
+test("an unanswered essay counts as zero, not as waiting for a trainer", () => {
+  // Bug lama: esai kosong tidak punya baris jawaban dan tidak pernah muncul
+  // di antrean, sehingga nilai percobaan kosong selamanya.
+  const essay = question({ id: "e1", type: "ESSAY", options: [] });
+  const other = question({ id: "e2", type: "ESSAY", options: [] });
+  const choice = question({ id: "c1" });
+  assert.deepEqual(
+    attemptScore([essay, other, choice], new Map([["e1", 1], ["c1", 2]])),
+    { pending: false, score: 50 },
+  );
+  // Esai yang dijawab tetapi belum dinilai tetap menahan nilai.
+  assert.equal(
+    attemptScore([essay, choice], new Map([["e1", null], ["c1", 2]])).pending,
+    true,
+  );
+});
+
+test("questions are numbered like the bank, with case study parts as 1.1", () => {
+  const labels = questionNumbers([
+    { id: "a" },
+    { id: "cs" },
+    { id: "s1", parentId: "cs" },
+    { id: "s2", parentId: "cs" },
+    { id: "b" },
+  ]);
+  assert.deepEqual(Object.fromEntries(labels), {
+    a: "1",
+    cs: "2",
+    s1: "2.1",
+    s2: "2.2",
+    b: "3",
+  });
 });
 
 /* -------------------------------------------------------------------------

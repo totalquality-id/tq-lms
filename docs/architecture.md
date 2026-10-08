@@ -63,7 +63,11 @@ Per-topic rules are validated against the bank when saved, and a shortfall is re
 
 Timing is anchored to `expiresAt` on the attempt row. The countdown in the browser is a reading aid only; a tampered clock does not extend an exam, and a sleeping tab does not shorten one. Submission carries a 30-second grace for network latency, then saves nothing further and grades what was stored.
 
-Starting and submitting both run in `Serializable` transactions, so two tabs cannot open two attempts or submit twice. Objective questions grade immediately; multiple choice is graded whole, so selecting every option never scores. Essays return no score, which leaves the attempt's grade empty until a trainer reviews it — a provisional number would misrepresent the result.
+Starting and submitting both run in `Serializable` transactions, so two tabs cannot open two attempts or submit twice. Objective questions grade immediately; multiple choice is graded whole, so selecting every option never scores, and a short answer matches any of its `|`-separated keys ignoring case and spacing. Essays return no score, which leaves the attempt's grade empty until a trainer reviews it — a provisional number would misrepresent the result. A question left blank scores zero rather than waiting: it has no answer row, so it would never reach the review queue and the attempt would stay ungraded forever.
+
+Automatic scores are a first pass, not the last word. Staff open any submitted attempt from the score table to see each answer against its key — including the reason a true/false question may require — and can grade or correct any single answer; the attempt's score and pass state are recomputed on every change, and the participant is notified only when the score first becomes available.
+
+A case study counts as one question wherever questions are counted: in the bank, in per-topic rules, and against a question limit, because it is drawn together with its parts. Its own text carries no points. Participants see it numbered like the bank — the case as 2, its parts as 2.1, 2.2 — and a case study whose parts have all been archived is not drawn.
 
 ## Question order and training copies
 

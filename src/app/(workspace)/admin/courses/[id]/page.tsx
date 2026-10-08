@@ -36,7 +36,7 @@ export default async function CourseDetailPage({
         orderBy: { position: "asc" },
         include: { lessons: { orderBy: { position: "asc" } } },
       },
-      _count: { select: { copies: { where: { batches: { some: {} } } }, questions: true } },
+      _count: { select: { copies: { where: { batches: { some: {} } } }, questions: { where: { deletedAt: null, parentId: null } } } },
     },
   });
   if (!course) notFound();

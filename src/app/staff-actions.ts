@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { failure } from "@/lib/action-result";
 import type { FormState } from "@/schemas/forms";
-import { gradeEssay, previewAssessment } from "@/services/assessment";
+import { previewAssessment, reviewAnswer } from "@/services/assessment";
 import { issueCertificate, revokeCertificate } from "@/services/certificate";
 import {
   archiveAssignment,
@@ -180,19 +180,21 @@ export async function selectionRulesAction(
   }
 }
 
-export async function gradeEssayAction(
+export async function reviewAnswerAction(
   answerId: string,
   _state: FormState,
   form: FormData,
 ): Promise<FormState> {
   try {
-    await gradeEssay(
+    await reviewAnswer(
       answerId,
       Number(form.get("score")),
       String(form.get("feedback") ?? ""),
     );
     revalidatePath("/trainer/reviews");
-    return { success: "Nilai esai tersimpan." };
+    revalidatePath("/admin/training/[id]", "layout");
+    revalidatePath("/trainer/training/[id]", "layout");
+    return { success: "Nilai jawaban tersimpan." };
   } catch (error) {
     return failure(error);
   }
