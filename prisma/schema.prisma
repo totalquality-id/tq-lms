@@ -192,6 +192,7 @@ model Course {
   thumbnail        String?
   published        Boolean         @default(false)
   duration         Int             @default(8)
+  /// Nilai awal untuk penilaian baru pada training course ini.
   passingGrade     Int             @default(70)
   sequential       Boolean         @default(false)
   createdAt        DateTime        @default(now())
@@ -249,7 +250,6 @@ model TrainingBatch {
   venue             String?
   meetingUrl        String?
   capacity          Int                    @default(30)
-  passingGrade      Int?
   minimumAttendance Int                    @default(80)
   description       String                 @default("")
   notes             String                 @default("")
@@ -338,6 +338,8 @@ model Assessment {
   startsAt           DateTime?
   endsAt             DateTime?
   durationMinutes    Int                  @default(30)
+  /// Satu-satunya nilai kelulusan yang berlaku: menentukan status lulus
+  /// percobaan, progres peserta, dan syarat sertifikat (ujian akhir).
   passingGrade       Int                  @default(70)
   maxAttempts        Int                  @default(1)
   randomizeQuestions Boolean              @default(false)

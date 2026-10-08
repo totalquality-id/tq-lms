@@ -246,6 +246,7 @@ export async function batchAssessments(id: string, paging: Paging = {}) {
     select: {
       id: true,
       courseId: true,
+      course: { select: { passingGrade: true } },
       assessments: { where: { deletedAt: null }, orderBy: { type: "asc" } },
       _count: { select: { enrollments: { where: enrollments } } },
       enrollments: {

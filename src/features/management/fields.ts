@@ -150,9 +150,10 @@ export function courseFields(data?: {
     },
     {
       name: "passingGrade",
-      label: "Nilai kelulusan",
+      label: "Nilai kelulusan bawaan",
       type: "number",
       required: true,
+      help: "Nilai awal saat membuat penilaian di training course ini. Yang berlaku adalah nilai pada tiap penilaian.",
       defaultValue: data?.passingGrade ?? 70,
       min: 0,
       max: 100,

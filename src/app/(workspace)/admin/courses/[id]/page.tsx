@@ -78,8 +78,8 @@ export default async function CourseDetailPage({
                   { term: "Kode sertifikat", value: course.code },
                   { term: "Durasi", value: `${course.duration} jam` },
                   {
-                    term: "Nilai kelulusan",
-                    value: `${course.passingGrade} dari 100`,
+                    term: "Nilai kelulusan bawaan",
+                    value: `${course.passingGrade} dari 100 · untuk penilaian baru`,
                   },
                   {
                     term: "Alur belajar",

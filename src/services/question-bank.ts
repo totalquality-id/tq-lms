@@ -302,7 +302,23 @@ export async function saveAssessment(
     // Hanya peralihan draft menjadi terbit yang dikabarkan; menyunting
     // penilaian yang sudah terbit bukan kabar baru.
     announce = data.published && !existing.published;
-    await db.assessment.update({ where: { id }, data: values });
+    await db.$transaction(async (tx) => {
+      await tx.assessment.update({ where: { id }, data: values });
+      // Status lulus percobaan disimpan, jadi ikut disamakan ketika nilai
+      // kelulusan berubah. Tanpa ini peserta melihat "lulus" pada percobaannya
+      // sementara syarat sertifikat, yang membaca nilai kelulusan terbaru,
+      // menyatakan sebaliknya.
+      if (existing.passingGrade !== data.passingGrade) {
+        await tx.assessmentAttempt.updateMany({
+          where: { assessmentId: id, score: { gte: data.passingGrade } },
+          data: { passed: true },
+        });
+        await tx.assessmentAttempt.updateMany({
+          where: { assessmentId: id, score: { lt: data.passingGrade } },
+          data: { passed: false },
+        });
+      }
+    });
   } else {
     await db.assessment.create({ data: { ...values, batchId } });
   }

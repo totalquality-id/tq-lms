@@ -43,7 +43,7 @@ export function assessmentFields(data?: {
   showAnswers: boolean;
   published: boolean;
   selection: string;
-}): FieldSpec[] {
+}, defaults?: { passingGrade: number }): FieldSpec[] {
   return [
     {
       name: "title",
@@ -74,7 +74,8 @@ export function assessmentFields(data?: {
       required: true,
       min: 0,
       max: 100,
-      defaultValue: data?.passingGrade ?? 70,
+      defaultValue: data?.passingGrade ?? defaults?.passingGrade ?? 70,
+      help: "Menentukan status lulus percobaan. Pada ujian akhir, nilai ini juga syarat sertifikat.",
     },
     {
       name: "maxAttempts",

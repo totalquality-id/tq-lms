@@ -29,8 +29,13 @@ export type EligibilityInput = {
     startDate: Date;
     endDate: Date;
     minimumAttendance: number;
-    passingGrade: number | null;
-    assessments: { id: string; type: AssessmentType; passingGrade: number }[];
+    assessments: {
+      id: string;
+      title: string;
+      type: AssessmentType;
+      passingGrade: number;
+      published: boolean;
+    }[];
     assignments: { id: string; required: boolean }[];
     evaluation: unknown | null;
   };
@@ -58,23 +63,24 @@ export function checkEligibility(enrollment: EligibilityInput): Eligibility {
       : "Presensi belum dicatat",
   });
 
-  const finalExam = batch.assessments.find(
-    (assessment) => assessment.type === "FINAL_EXAM",
-  );
-  if (finalExam) {
-    const score = bestScore(
-      enrollment.attempts.filter(
-        (attempt) => attempt.assessmentId === finalExam.id,
-      ),
+  const exams = finalExams(enrollment);
+  if (exams.length) {
+    const failed = exams.filter(
+      (exam) => exam.score === null || exam.score < exam.passingGrade,
     );
-    const passing = batch.passingGrade ?? finalExam.passingGrade;
     requirements.push({
       label: "Ujian akhir",
-      met: score !== null && score >= passing,
-      detail:
-        score === null
-          ? "Belum ada nilai"
-          : `Nilai ${Math.round(score)} (minimum ${passing})`,
+      met: failed.length === 0,
+      detail: exams
+        .map(
+          (exam) =>
+            `${exams.length > 1 ? `${exam.title}: ` : ""}${
+              exam.score === null
+                ? "Belum ada nilai"
+                : `Nilai ${Math.round(exam.score)} (minimum ${exam.passingGrade})`
+            }`,
+        )
+        .join("; "),
     });
   } else {
     requirements.push({
@@ -128,6 +134,34 @@ export function checkEligibility(enrollment: EligibilityInput): Eligibility {
     eligible: requirements.every((requirement) => requirement.met),
     requirements,
   };
+}
+
+/**
+ * Ujian akhir yang menentukan kelulusan, beserta nilai terbaik peserta.
+ *
+ * Hanya ujian yang sudah terbit: ujian draft belum dapat dikerjakan peserta,
+ * jadi tidak boleh menahan sertifikatnya. Nilai kelulusan yang berlaku adalah
+ * milik ujian itu sendiri — angka yang sama dengan yang dilihat peserta di
+ * halaman ujian dan yang menentukan status lulus percobaannya.
+ */
+export function finalExams(enrollment: Pick<EligibilityInput, "attempts" | "batch">) {
+  return enrollment.batch.assessments
+    .filter((assessment) => assessment.type === "FINAL_EXAM" && assessment.published)
+    .map((assessment) => ({
+      id: assessment.id,
+      title: assessment.title,
+      passingGrade: assessment.passingGrade,
+      score: bestScore(
+        enrollment.attempts.filter((attempt) => attempt.assessmentId === assessment.id),
+      ),
+    }));
+}
+
+/** Nilai ujian akhir yang dicetak di sertifikat: rata-rata bila lebih dari satu. */
+export function finalScore(enrollment: Pick<EligibilityInput, "attempts" | "batch">) {
+  const exams = finalExams(enrollment);
+  if (!exams.length || exams.some((exam) => exam.score === null)) return null;
+  return exams.reduce((sum, exam) => sum + (exam.score ?? 0), 0) / exams.length;
 }
 
 /**

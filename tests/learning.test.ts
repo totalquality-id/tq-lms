@@ -306,6 +306,7 @@ function eligibility(overrides: {
   attendance?: { status: string }[];
   finalScore?: number | null;
   withExam?: boolean;
+  publishedExam?: boolean;
 }): EligibilityInput {
   const withExam = overrides.withExam ?? true;
   return {
@@ -329,9 +330,16 @@ function eligibility(overrides: {
       startDate: new Date("2026-07-01T02:00:00Z"),
       endDate: new Date("2026-07-03T09:00:00Z"),
       minimumAttendance: 80,
-      passingGrade: null,
       assessments: withExam
-        ? [{ id: "final", type: "FINAL_EXAM", passingGrade: 70 }]
+        ? [
+            {
+              id: "final",
+              title: "Ujian akhir",
+              type: "FINAL_EXAM",
+              passingGrade: 70,
+              published: overrides.publishedExam ?? true,
+            },
+          ]
         : [],
       assignments: [],
       evaluation: null,
@@ -446,4 +454,35 @@ test("CSV quotes separators and doubles embedded quotes", () => {
   assert.ok(csv.startsWith("﻿"), "harus diawali BOM agar rapi di Excel");
   assert.match(csv, /Training;Catatan/);
   assert.match(csv, /"Kelas ""A""; sesi pagi"/);
+});
+
+test("a final exam still in draft does not hold back a certificate", () => {
+  // Peserta tidak dapat mengerjakan ujian yang belum terbit, jadi ujian itu
+  // tidak boleh menjadi syarat yang mustahil dipenuhi.
+  const { eligible, requirements } = checkEligibility(
+    eligibility({ attendance: present, publishedExam: false }),
+  );
+  assert.equal(eligible, true);
+  assert.equal(
+    requirements.find((item) => item.label === "Ujian akhir")?.detail,
+    "Tidak ada ujian akhir pada training ini",
+  );
+});
+
+test("every published final exam must be passed, each at its own grade", () => {
+  const input = eligibility({ attendance: present, finalScore: 80 });
+  input.batch.assessments.push({
+    id: "final-2",
+    title: "Ujian praktik",
+    type: "FINAL_EXAM",
+    passingGrade: 85,
+    published: true,
+  });
+  input.attempts.push({ assessmentId: "final-2", submittedAt: new Date(), score: 84 });
+  const { eligible, requirements } = checkEligibility(input);
+  assert.equal(eligible, false);
+  assert.match(
+    requirements.find((item) => item.label === "Ujian akhir")!.detail,
+    /Ujian praktik: Nilai 84 \(minimum 85\)/,
+  );
 });

@@ -71,7 +71,9 @@ export async function ManageAssessments({
               action={assessmentAction.bind(null, id, undefined)}
               title="Buat penilaian"
               description="Soal diambil dari bank soal course. Atur daftar soalnya setelah penilaian tersimpan."
-              fields={assessmentFields()}
+              fields={assessmentFields(undefined, {
+                passingGrade: batch.course.passingGrade,
+              })}
               triggerSize="sm"
             />
           }

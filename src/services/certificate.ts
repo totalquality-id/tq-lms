@@ -3,8 +3,11 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { checkEligibility, type CertificateSnapshot } from "@/lib/eligibility";
-import { bestScore } from "@/lib/grading";
+import {
+  checkEligibility,
+  finalScore,
+  type CertificateSnapshot,
+} from "@/lib/eligibility";
 import { attendanceRate } from "@/lib/progress";
 import { dateInput, daysBetween } from "@/lib/utils";
 import { requireAdmin, requireBatchStaff } from "./access";
@@ -93,16 +96,7 @@ export async function issueCertificate(batchId: string, enrollmentId: string) {
         );
 
       const { batch } = enrollment;
-      const finalExam = batch.assessments.find(
-        (assessment) => assessment.type === "FINAL_EXAM",
-      );
-      const score = finalExam
-        ? bestScore(
-            enrollment.attempts.filter(
-              (attempt) => attempt.assessmentId === finalExam.id,
-            ),
-          )
-        : null;
+      const score = finalScore(enrollment);
 
       const modules = await tx.courseModule.findMany({
         where: { courseId: batch.courseId },
