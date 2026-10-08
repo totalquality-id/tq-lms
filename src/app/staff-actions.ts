@@ -19,6 +19,8 @@ import {
 import {
   archiveAssessment,
   archiveQuestion,
+  moveQuestion,
+  reattachQuestion,
   saveAssessment,
   saveQuestion,
   setAssessmentQuestions,
@@ -223,6 +225,36 @@ export async function archiveQuestionAction(id: string): Promise<FormState> {
     revalidatePath("/admin/question-bank");
     revalidatePath("/admin/question-bank/[courseId]", "page");
     return { success: "Soal diarsipkan." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function revalidateQuestionBanks() {
+  revalidatePath("/admin/training/[id]", "layout");
+  revalidatePath("/trainer/training/[id]", "layout");
+  revalidatePath("/admin/question-bank");
+  revalidatePath("/admin/question-bank/[courseId]", "page");
+}
+
+export async function moveQuestionAction(
+  id: string,
+  direction: number,
+): Promise<FormState> {
+  try {
+    await moveQuestion(id, direction);
+    revalidateQuestionBanks();
+    return { success: "Urutan soal diperbarui." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reattachQuestionAction(id: string): Promise<FormState> {
+  try {
+    await reattachQuestion(id);
+    revalidateQuestionBanks();
+    return { success: "Soal kembali mengikuti bank soal induk." };
   } catch (error) {
     return failure(error);
   }

@@ -88,7 +88,7 @@ enum AttendanceStatus {
 enum SelectionMode {
   /// Seluruh bank soal course, dibatasi questionLimit bila diisi.
   ALL
-  /// Hanya soal yang dipilih trainer, pada urutan yang ia tetapkan.
+  /// Hanya soal yang dipilih trainer, dalam urutan bank soal.
   MANUAL
   /// Sejumlah soal acak per topik, mengikuti selectionRules.
   RULES
@@ -369,11 +369,23 @@ model Question {
   deletedAt   DateTime?
   requiresReason Boolean              @default(false)
   parentId       String?
+  /// Urutan di antara soal sesaudara (courseId + parentId yang sama). Urutan
+  /// bank soal induk adalah acuan untuk setiap training dan setiap ujian.
+  position       Int                  @default(0)
+  /// Pada salinan training: soal induk yang disalin. Kosong untuk soal induk
+  /// dan untuk soal yang dibuat khusus di training.
+  sourceQuestionId String?
+  /// Salinan yang disunting atau diarsipkan di training tidak lagi ditimpa oleh
+  /// induknya. Urutannya tetap mengikuti induk.
+  detached       Boolean              @default(false)
   course      Course               @relation(fields: [courseId], references: [id])
   options     QuestionOption[]
   assessments AssessmentQuestion[]
   parent      Question?            @relation("CaseStudyQuestions", fields: [parentId], references: [id], onDelete: Restrict)
   children    Question[]           @relation("CaseStudyQuestions")
+
+  @@index([courseId, parentId, position])
+  @@index([sourceQuestionId])
 }
 
 model QuestionOption {

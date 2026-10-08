@@ -24,6 +24,8 @@ export { bestScore, gradeAnswer, visibleQuestions } from "@/lib/grading";
 export type { SnapshotQuestion, VisibleQuestion } from "@/lib/grading";
 import { myEnrollment } from "./learning";
 import { submissionSchema } from "@/schemas/assessment";
+import { ensureBatchSynced } from "./course-sync";
+import { BANK_ORDER } from "./question-bank";
 
 /**
  * Menyusun paket soal untuk satu percobaan.
@@ -41,24 +43,16 @@ async function pickQuestions(
     where: { id: assessmentId },
     include: {
       batch: { select: { courseId: true } },
-      questions: {
-        orderBy: { position: "asc" },
-        include: {
-          question: { include: { options: { orderBy: { position: "asc" } } } },
-        },
-      },
+      questions: { select: { questionId: true } },
     },
   });
 
-  const manual = assessment.questions
-    .map((link) => link.question)
-    .filter((question) => !question.deletedAt);
-
-  // Bank soal selalu dibaca seluruhnya agar bisa mengaitkan anak dengan induknya
+  // Bank soal selalu dibaca seluruhnya agar bisa mengaitkan anak dengan induknya.
+  // Urutannya adalah urutan bank soal, acuan untuk setiap mode pemilihan.
   const allBank = await tx.question.findMany({
     where: { courseId: assessment.batch.courseId, deletedAt: null },
     include: { options: { orderBy: { position: "asc" } } },
-    orderBy: [{ topic: "asc" }, { id: "asc" }],
+    orderBy: BANK_ORDER,
   });
 
   const childrenByParent = new Map<string, typeof allBank>();
@@ -71,8 +65,11 @@ async function pickQuestions(
     }
   }
 
-  const topLevelManual = manual.filter((q) => !q.parentId);
   const topLevelBank = allBank.filter((q) => !q.parentId);
+  // Daftar manual disusun ulang menurut bank soal, sehingga daftar lama yang
+  // tersimpan dalam urutan lain pun ikut urutan acuan.
+  const chosen = new Set(assessment.questions.map((link) => link.questionId));
+  const topLevelManual = topLevelBank.filter((q) => chosen.has(q.id));
 
   const { questions: selectedTopLevel } = selectQuestions(
     {
@@ -124,6 +121,7 @@ export async function previewAssessment(batchId: string, assessmentId: string) {
     select: { id: true },
   });
   if (!assessment) notFound();
+  await ensureBatchSynced(batchId);
   // Memakai pemilih soal peserta, tanpa membuat percobaan atau menyimpan jawaban.
   return visibleQuestions(await pickQuestions(db, assessment.id));
 }
@@ -172,6 +170,8 @@ export async function startAttempt(batchId: string, assessmentId: string) {
 
   const window = attemptWindow(assessment);
   if (!window.ok) throw new Error(window.reason);
+
+  await ensureBatchSynced(batchId);
 
   return db.$transaction(
     async (tx) => {

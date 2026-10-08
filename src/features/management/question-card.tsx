@@ -1,26 +1,41 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Eye, Archive } from "lucide-react";
-import { archiveQuestionAction } from "@/app/staff-actions";
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Link2,
+} from "lucide-react";
+import {
+  archiveQuestionAction,
+  moveQuestionAction,
+  reattachQuestionAction,
+} from "@/app/staff-actions";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { labels } from "@/lib/utils";
 import { QUESTION_TYPE_LABELS } from "@/lib/question-types";
 import { QuestionEditor, type EditableQuestion } from "./question-editor";
-import { Plus } from "lucide-react";
 
 export function QuestionCard({
   question,
   course,
   topics,
   number,
+  move,
 }: {
   question: EditableQuestion & { usageCount: number };
   course: { id: string; title: string };
   topics: string[];
   number: number | string;
+  /** Diisi hanya bila urutan boleh diatur di sini (bank soal induk tanpa filter). */
+  move?: { up: boolean; down: boolean };
 }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
@@ -46,6 +61,11 @@ export function QuestionCard({
           {question.type !== "CASE_STUDY" ? (
             <span className="text-xs text-ink-500">{question.points} poin</span>
           ) : null}
+          {question.sync === "detached" ? (
+            <Badge tone="warning">Terlepas dari induk</Badge>
+          ) : question.sync === "local" ? (
+            <Badge>Khusus training ini</Badge>
+          ) : null}
           {question.usageCount ? (
             <span className="text-xs text-ink-500">
               · Dipakai di {question.usageCount} penilaian
@@ -67,8 +87,51 @@ export function QuestionCard({
           {expanded ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
         </Button>
         <div className="flex flex-wrap gap-2">
+          {move ? (
+            <>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                {...(move.up ? {} : { disabled: true })}
+                aria-label={`Naikkan soal ${number}`}
+                action={moveQuestionAction.bind(null, question.id, -1)}
+              >
+                <ArrowUp aria-hidden />
+              </ActionButton>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                {...(move.down ? {} : { disabled: true })}
+                aria-label={`Turunkan soal ${number}`}
+                action={moveQuestionAction.bind(null, question.id, 1)}
+              >
+                <ArrowDown aria-hidden />
+              </ActionButton>
+            </>
+          ) : null}
+          {question.sync === "detached" ? (
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              action={reattachQuestionAction.bind(null, question.id)}
+              confirm={{
+                title: "Ikuti bank soal induk lagi?",
+                description:
+                  "Suntingan khusus training pada soal ini diganti dengan isi, pilihan jawaban, dan status arsip dari bank soal induk. Ujian yang sudah dimulai tidak terpengaruh.",
+              }}
+              confirmLabel="Ikuti induk"
+            >
+              <Link2 aria-hidden />
+              Ikuti induk lagi
+            </ActionButton>
+          ) : null}
           {question.type === "CASE_STUDY" ? (
-            <QuestionEditor course={course} topics={topics} parentId={question.id} label="Tambah sub-soal" />
+            <QuestionEditor
+              course={course}
+              topics={topics}
+              parentId={question.id}
+              label="Tambah sub-soal"
+            />
           ) : null}
           <QuestionEditor course={course} topics={topics} question={question} />
           <ActionButton
@@ -131,7 +194,9 @@ export function QuestionCard({
             </p>
           </div>
         ) : null}
-        {question.type === "CASE_STUDY" && question.children && question.children.length > 0 ? (
+        {question.type === "CASE_STUDY" &&
+        question.children &&
+        question.children.length > 0 ? (
           <div className="mt-6 border-t border-ink-100 pt-4">
             <h3 className="text-sm font-semibold text-ink-900 mb-4">
               Sub-soal ({question.children.length})
@@ -144,6 +209,14 @@ export function QuestionCard({
                   course={course}
                   topics={topics}
                   number={`${number}.${index + 1}`}
+                  move={
+                    move
+                      ? {
+                          up: index > 0,
+                          down: index < question.children!.length - 1,
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </div>

@@ -57,13 +57,21 @@ API: `/api/certificates/[number]/pdf`, `/api/files/[kind]/[id]`, `/api/reports`,
 
 An attempt freezes its questions into `AssessmentAttempt.questionSnapshot` when it starts, including the answer key. Editing or archiving a question afterwards changes neither a running exam nor a recorded score. Randomisation and the question limit are applied server-side, so two participants receive genuinely different papers.
 
-Where those questions come from is stated by `Assessment.selection`, not inferred from whether a manual list happens to exist. `ALL` draws from the course bank and honours `questionLimit`; `MANUAL` uses only the questions a trainer picked, in the order they set; `RULES` takes a given count per topic from `selectionRules`. An enum rather than inference matters because a trainer who configures per-topic rules and later attaches one question manually must not silently change how the exam is built. `questionLimit` applies to `ALL` alone — under `RULES` the rules already state the count, and applying both would make the total unpredictable.
+Where those questions come from is stated by `Assessment.selection`, not inferred from whether a manual list happens to exist. `ALL` draws from the course bank and honours `questionLimit`; `MANUAL` uses only the questions a trainer picked; `RULES` takes a given count per topic from `selectionRules`. An enum rather than inference matters because a trainer who configures per-topic rules and later attaches one question manually must not silently change how the exam is built. `questionLimit` applies to `ALL` alone — under `RULES` the rules already state the count, and applying both would make the total unpredictable.
 
 Per-topic rules are validated against the bank when saved, and a shortfall is refused there. A trainer composing an assessment can fix it; a participant who has already pressed "start" cannot. If the bank shrinks afterwards, the attempt still runs with whatever the topics can supply rather than refusing to open — the selector reports the shortfall so it stays visible. Questions are shuffled once more after the rules are applied, so the topic structure is not handed to participants as a pattern in the ordering.
 
 Timing is anchored to `expiresAt` on the attempt row. The countdown in the browser is a reading aid only; a tampered clock does not extend an exam, and a sleeping tab does not shorten one. Submission carries a 30-second grace for network latency, then saves nothing further and grades what was stored.
 
 Starting and submitting both run in `Serializable` transactions, so two tabs cannot open two attempts or submit twice. Objective questions grade immediately; multiple choice is graded whole, so selecting every option never scores. Essays return no score, which leaves the attempt's grade empty until a trainer reviews it — a provisional number would misrepresent the result.
+
+## Question order and training copies
+
+Every training delivers a private copy of its course (`Course.sourceCourseId`), including the question bank. The parent course's bank is the reference: `Question.position` orders siblings (the same course and case-study parent), it is set only in the parent bank, and every reader — the bank pages, the manual picker, and the selector that builds an attempt — sorts by `position` then `id`. Without randomisation a participant therefore receives questions in exactly the bank's order, whichever selection mode is used; a manual list is re-sorted into bank order rather than kept in the order the form was submitted.
+
+A copied question records its parent in `sourceQuestionId` and follows it: content, options, case-study parent, archive state, and position are synchronised. Editing or archiving a copy inside a training marks it `detached`, after which only its position keeps following the parent; an administrator can reattach it. Questions created inside a training have no parent and are left alone.
+
+Synchronisation is a diff: it reads both banks, writes only what differs, and does so in a transaction holding an advisory lock per copy, so rewritten options are never observed empty and two synchronisations of one copy run one after another. It is pushed when the parent bank changes and re-checked when a training's bank is read — the read path writes nothing in the steady state. Trainings that are completed are not synchronised; attempts already started are unaffected regardless, because they run from their own snapshot.
 
 ## Certification
 
