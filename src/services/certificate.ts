@@ -104,6 +104,23 @@ export async function issueCertificate(batchId: string, enrollmentId: string) {
           )
         : null;
 
+      const modules = await tx.courseModule.findMany({
+        where: { courseId: batch.courseId },
+        orderBy: { position: "asc" },
+        select: { title: true },
+      });
+      // Kelas publik tidak punya organisasi; yang dicetak sebagai "Company"
+      // adalah organisasi tempat peserta terdaftar.
+      const membership = batch.organization
+        ? null
+        : await tx.organizationMember.findFirst({
+            where: {
+              userId: enrollment.participantId,
+              organization: { deletedAt: null },
+            },
+            include: { organization: true },
+          });
+
       const snapshot: CertificateSnapshot = {
         participant: enrollment.participant.name,
         participantEmail: enrollment.participant.email,
@@ -111,7 +128,8 @@ export async function issueCertificate(batchId: string, enrollmentId: string) {
         courseCategory: batch.course.category,
         training: batch.title,
         trainingCode: batch.code,
-        organization: batch.organization?.name ?? null,
+        organization:
+          batch.organization?.name ?? membership?.organization.name ?? null,
         trainers: batch.trainers.map((link) => link.trainer.name),
         startDate: dateInput(batch.startDate),
         endDate: dateInput(batch.endDate),
@@ -121,6 +139,7 @@ export async function issueCertificate(batchId: string, enrollmentId: string) {
           enrollment.attendance,
           daysBetween(batch.startDate, batch.endDate).length,
         ),
+        subjects: modules.map((module) => module.title),
       };
 
       const number =
@@ -244,10 +263,18 @@ export async function verifyCertificate(number: string) {
     revokedAt: certificate.revokedAt,
     participant: snapshot.participant,
     course: snapshot.course,
+    // Judul training adalah yang tercetak pada sertifikat.
+    training: snapshot.training,
+    subjects: snapshot.subjects ?? [],
     organization: snapshot.organization,
     trainingStart: snapshot.startDate,
     trainingEnd: snapshot.endDate,
     trainers: snapshot.trainers,
+    // Durasi course dihitung per hari pelatihan.
     durationHours: snapshot.durationHours,
+    trainingDays: daysBetween(
+      new Date(snapshot.startDate),
+      new Date(snapshot.endDate),
+    ).length,
   };
 }

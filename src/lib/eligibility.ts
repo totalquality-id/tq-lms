@@ -149,6 +149,8 @@ export type CertificateSnapshot = {
   durationHours: number;
   finalScore: number | null;
   attendanceRate: number;
+  /** Judul modul course; tidak ada pada sertifikat yang terbit sebelum template baru. */
+  subjects?: string[];
 };
 
 /** Teks tanggal pelatihan untuk dokumen cetak. */

@@ -37,6 +37,7 @@ test("rules take the requested count from each topic", () => {
       { topic: "Klausul 5", count: 1 },
     ],
     bank,
+    true,
     stable,
   );
   assert.deepEqual(
@@ -55,6 +56,7 @@ test("a topic with too few questions yields what exists and reports the shortfal
   const { questions, outcomes } = applyRules(
     [{ topic: "Annex A", count: 5 }],
     bank,
+    true,
     stable,
   );
   assert.equal(questions.length, 1);
@@ -65,6 +67,7 @@ test("a topic that no longer exists contributes nothing, not a crash", () => {
   const { questions, outcomes } = applyRules(
     [{ topic: "Klausul 9", count: 3 }],
     bank,
+    true,
     stable,
   );
   assert.equal(questions.length, 0);
@@ -78,6 +81,7 @@ test("rules with a zero count are skipped entirely", () => {
       { topic: "Klausul 5", count: 1 },
     ],
     bank,
+    true,
     stable,
   );
   assert.deepEqual(

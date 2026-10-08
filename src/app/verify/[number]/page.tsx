@@ -90,9 +90,21 @@ export default async function VerifyPage({
                 <div>
                   <dt className="text-xs text-ink-500">Pelatihan</dt>
                   <dd className="mt-0.5 text-sm text-ink-800">
-                    {certificate.course}
+                    {certificate.training}
                   </dd>
                 </div>
+                {certificate.subjects.length ? (
+                  <div>
+                    <dt className="text-xs text-ink-500">Materi</dt>
+                    <dd className="mt-0.5 text-sm text-ink-800">
+                      <ul className="list-disc space-y-0.5 pl-5">
+                        {certificate.subjects.map((subject, index) => (
+                          <li key={index}>{subject}</li>
+                        ))}
+                      </ul>
+                    </dd>
+                  </div>
+                ) : null}
                 {certificate.organization ? (
                   <div>
                     <dt className="text-xs text-ink-500">Organisasi</dt>
@@ -113,7 +125,12 @@ export default async function VerifyPage({
                   <div>
                     <dt className="text-xs text-ink-500">Durasi</dt>
                     <dd className="mt-0.5 text-sm text-ink-800">
-                      {certificate.durationHours} jam pelatihan
+                      {certificate.trainingDays} hari pelatihan selama{" "}
+                      {certificate.durationHours * certificate.trainingDays} jam
+                      <span className="block text-xs text-ink-500">
+                        {certificate.durationHours} jam ×{" "}
+                        {certificate.trainingDays} hari
+                      </span>
                     </dd>
                   </div>
                   <div>

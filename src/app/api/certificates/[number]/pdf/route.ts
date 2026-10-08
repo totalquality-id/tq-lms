@@ -52,6 +52,7 @@ export async function GET(
     certificate.number,
     certificate.snapshot as unknown as CertificateSnapshot,
     `${origin}/verify/${certificate.number}`,
+    certificate.issuedAt ?? certificate.createdAt,
   );
 
   return new NextResponse(pdf as BodyInit, {
