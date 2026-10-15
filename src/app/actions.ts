@@ -7,6 +7,7 @@ import {
   archiveEntity,
   deleteEntity,
   reorder,
+  type DeletableEntity,
   type Entity,
 } from "@/services/management";
 import {
@@ -58,7 +59,7 @@ export async function archiveAction(
   }
 }
 export async function deleteEntityAction(
-  entity: "course" | "batch",
+  entity: DeletableEntity,
   id: string,
 ): Promise<FormState> {
   try {
@@ -66,7 +67,12 @@ export async function deleteEntityAction(
     revalidatePath("/", "layout");
     return {
       success: "Data berhasil dihapus permanen.",
-      redirectTo: entity === "course" ? "/admin/courses" : "/admin/training",
+      redirectTo:
+        entity === "course"
+          ? "/admin/courses"
+          : entity === "batch"
+            ? "/admin/training"
+            : undefined,
     };
   } catch (e) {
     return failure(e);

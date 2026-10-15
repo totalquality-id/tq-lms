@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/card";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { getPage, PAGE_SIZE, Pagination } from "@/components/ui/pagination";
 import { EmptyState, Table, TableWrap, Td, Th } from "@/components/ui/table";
-import { EntityForm } from "@/features/management/entity-form";
+import {
+  DeleteEntityButton,
+  EntityForm,
+} from "@/features/management/entity-form";
 import { courseFields } from "@/features/management/fields";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/services/access";
@@ -90,6 +93,9 @@ export default async function CoursesPage({
                   <Th className="text-right">Soal</Th>
                   <Th className="text-right">Training</Th>
                   <Th>Status</Th>
+                  <Th>
+                    <span className="sr-only">Tindakan</span>
+                  </Th>
                 </tr>
               </thead>
               <tbody>
@@ -124,6 +130,15 @@ export default async function CoursesPage({
                     <Td>
                       <StatusBadge
                         value={course.published ? "PUBLISHED" : "DRAFT"}
+                      />
+                    </Td>
+                    <Td className="text-right">
+                      <DeleteEntityButton
+                        entity="course"
+                        id={course.id}
+                        title={course.title}
+                        label="Hapus"
+                        description="Course beserta seluruh modul, pelajaran, dan bank soal akan dihapus permanen. Tindakan ini tidak dapat dibatalkan."
                       />
                     </Td>
                   </tr>

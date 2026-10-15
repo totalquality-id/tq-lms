@@ -445,19 +445,42 @@ export async function archiveEntity(entity: Entity, id: string) {
   });
 }
 
+export type DeletableEntity = "course" | "batch" | "module" | "lesson";
+
 /**
- * Menghapus permanen entitas course atau batch beserta seluruh data
- * turunannya. Hanya entitas yang belum diarsipkan (deletedAt === null)
- * yang ditangani di sini — penghapusan dari arsip memakai deleteArchived.
+ * Menghapus isi sebuah course (bank soal dan kurikulum) lalu course itu
+ * sendiri. Dipakai untuk course induk maupun salinan khusus training.
+ * Soal anak studi kasus dihapus lebih dulu karena relasi induknya RESTRICT.
+ */
+async function destroyCourse(tx: Prisma.TransactionClient, courseId: string) {
+  await tx.questionOption.deleteMany({
+    where: { question: { courseId } },
+  });
+  await tx.assessmentQuestion.deleteMany({
+    where: { question: { courseId } },
+  });
+  await tx.question.deleteMany({
+    where: { courseId, parentId: { not: null } },
+  });
+  await tx.question.deleteMany({ where: { courseId } });
+  await tx.lesson.deleteMany({ where: { module: { courseId } } });
+  await tx.courseModule.deleteMany({ where: { courseId } });
+  await tx.course.delete({ where: { id: courseId } });
+}
+
+/**
+ * Menghapus permanen course, training, modul, atau pelajaran beserta data
+ * turunannya. Untuk course dan training hanya data yang belum diarsipkan
+ * (deletedAt === null) yang ditangani di sini — penghapusan dari arsip
+ * memakai deleteArchived.
  *
  * Operasi ini tidak dapat dibatalkan. Pemeriksaan keselamatan:
- * - Course: tidak boleh masih dipakai oleh training manapun (aktif/non-aktif).
- * - Batch:  tidak boleh memiliki peserta, penilaian, atau tugas.
+ * - Course:  tidak boleh masih dipakai oleh training manapun (aktif/non-aktif).
+ * - Batch:   tidak boleh memiliki peserta. Penilaian, tugas, evaluasi, dan
+ *            materi ikut terhapus karena tanpa peserta belum ada isiannya.
+ * - Modul/pelajaran: tidak boleh sudah diselesaikan peserta.
  */
-export async function deleteEntity(
-  entity: "course" | "batch",
-  id: string,
-) {
+export async function deleteEntity(entity: DeletableEntity, id: string) {
   const actor = await requireAdmin();
   await db.$transaction(
     async (tx) => {
@@ -471,39 +494,30 @@ export async function deleteEntity(
         const copyCount = await tx.course.count({
           where: { sourceCourseId: course.id, batches: { some: {} } },
         });
-        if (copyCount > 0)
+        const directCount = await tx.trainingBatch.count({
+          where: { courseId: course.id },
+        });
+        if (copyCount + directCount > 0)
           throw new Error(
             "Course ini masih dipakai oleh training. Hapus training terkait terlebih dahulu.",
           );
 
-        // Hapus bank soal beserta opsinya
-        await tx.questionOption.deleteMany({
-          where: { question: { courseId: course.id } },
+        // Salinan yang tidak lagi dipakai training ikut dihapus supaya
+        // relasi ke course induk tidak menahan penghapusan.
+        const orphans = await tx.course.findMany({
+          where: { sourceCourseId: course.id },
+          select: { id: true },
         });
-        await tx.assessmentQuestion.deleteMany({
-          where: { question: { courseId: course.id } },
-        });
-        await tx.question.deleteMany({ where: { courseId: course.id } });
+        for (const orphan of orphans) await destroyCourse(tx, orphan.id);
 
-        // Hapus kurikulum
-        await tx.lesson.deleteMany({
-          where: { module: { courseId: course.id } },
-        });
-        await tx.courseModule.deleteMany({ where: { courseId: course.id } });
-
-        // Hapus course itu sendiri
-        await tx.course.delete({ where: { id } });
+        await destroyCourse(tx, course.id);
       } else if (entity === "batch") {
         const batch = await tx.trainingBatch.findFirstOrThrow({
           where: { id, deletedAt: null },
         });
 
-        if (["OPEN", "ONGOING"].includes(batch.status))
-          throw new Error(
-            "Training aktif tidak dapat dihapus. Ubah statusnya terlebih dahulu.",
-          );
-
-        // Tolak jika training memiliki data operasional
+        // Tolak jika training memiliki peserta — termasuk peserta yang sudah
+        // dibatalkan, karena nilai dan sertifikatnya masih tersimpan.
         const enrollCount = await tx.enrollment.count({
           where: { batchId: id },
         });
@@ -512,61 +526,49 @@ export async function deleteEntity(
             "Training ini memiliki data peserta dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
           );
 
-        const assessmentCount = await tx.assessment.count({
-          where: { batchId: id },
+        // Tanpa peserta, penilaian dan tugas belum memiliki percobaan atau
+        // pengumpulan, sehingga aman ikut dihapus.
+        await tx.assessmentQuestion.deleteMany({
+          where: { assessment: { batchId: id } },
         });
-        if (assessmentCount > 0)
-          throw new Error(
-            "Training ini memiliki penilaian dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
-          );
-
-        const assignmentCount = await tx.assignment.count({
-          where: { batchId: id },
+        await tx.assessment.deleteMany({ where: { batchId: id } });
+        await tx.assignment.deleteMany({ where: { batchId: id } });
+        await tx.evaluationResponse.deleteMany({
+          where: { evaluation: { batchId: id } },
         });
-        if (assignmentCount > 0)
-          throw new Error(
-            "Training ini memiliki tugas dan tidak dapat dihapus. Gunakan arsip sebagai gantinya.",
-          );
-
-        // Hapus trainer assignment
+        await tx.trainingEvaluation.deleteMany({ where: { batchId: id } });
         await tx.trainingBatchTrainer.deleteMany({ where: { batchId: id } });
-
-        // Hapus resource
         await tx.trainingResource.deleteMany({ where: { batchId: id } });
-
-        // Hapus evaluasi training (formulir dan respons)
-        const evaluation = await tx.trainingEvaluation.findUnique({
-          where: { batchId: id },
-        });
-        if (evaluation) {
-          await tx.evaluationResponse.deleteMany({
-            where: { evaluationId: evaluation.id },
-          });
-          await tx.trainingEvaluation.delete({ where: { id: evaluation.id } });
-        }
-
-        // Hapus salinan course khusus training ini
-        const courseId = batch.courseId;
         await tx.trainingBatch.delete({ where: { id } });
 
-        // Hapus course copy (salinan khusus training)
+        // Hapus salinan course khusus training ini
         const copy = await tx.course.findFirst({
-          where: { id: courseId, sourceCourseId: { not: null } },
+          where: {
+            id: batch.courseId,
+            sourceCourseId: { not: null },
+            batches: { none: {} },
+          },
         });
-        if (copy) {
-          await tx.questionOption.deleteMany({
-            where: { question: { courseId: copy.id } },
-          });
-          await tx.assessmentQuestion.deleteMany({
-            where: { question: { courseId: copy.id } },
-          });
-          await tx.question.deleteMany({ where: { courseId: copy.id } });
-          await tx.lesson.deleteMany({
-            where: { module: { courseId: copy.id } },
-          });
-          await tx.courseModule.deleteMany({ where: { courseId: copy.id } });
-          await tx.course.delete({ where: { id: copy.id } });
-        }
+        if (copy) await destroyCourse(tx, copy.id);
+      } else if (entity === "module") {
+        await tx.courseModule.findUniqueOrThrow({ where: { id } });
+        if (
+          await tx.lessonCompletion.count({
+            where: { lesson: { moduleId: id } },
+          })
+        )
+          throw new Error(
+            "Modul ini sudah dipelajari peserta dan tidak dapat dihapus.",
+          );
+        await tx.lesson.deleteMany({ where: { moduleId: id } });
+        await tx.courseModule.delete({ where: { id } });
+      } else if (entity === "lesson") {
+        await tx.lesson.findUniqueOrThrow({ where: { id } });
+        if (await tx.lessonCompletion.count({ where: { lessonId: id } }))
+          throw new Error(
+            "Pelajaran ini sudah diselesaikan peserta dan tidak dapat dihapus.",
+          );
+        await tx.lesson.delete({ where: { id } });
       } else {
         throw new Error("Penghapusan permanen tidak tersedia untuk data ini.");
       }

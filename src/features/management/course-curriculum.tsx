@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { ExternalLink } from "lucide-react";
+import { deleteEntityAction } from "@/app/actions";
 import { SectionHeader } from "@/components/layout/page-header";
+import { ActionButton } from "@/components/ui/action-button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/table";
 import { EntityForm, ReorderButtons } from "@/features/management/entity-form";
@@ -55,6 +57,21 @@ export function CourseCurriculum({ course }: { course: Course }) {
                       variant="ghost"
                       fields={moduleField(courseModule.title)}
                     />
+                    <ActionButton
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      action={deleteEntityAction.bind(null, "module", courseModule.id)}
+                      confirm={{
+                        title: "Hapus modul ini?",
+                        description: `"${courseModule.title}" beserta ${courseModule.lessons.length} pelajaran di dalamnya akan dihapus permanen. Modul yang sudah dipelajari peserta tidak dapat dihapus.`,
+                      }}
+                      confirmLabel="Hapus modul"
+                      pendingLabel="Menghapus…"
+                      destructive
+                    >
+                      Hapus
+                    </ActionButton>
                   </div>
                 }
               />
@@ -113,6 +130,21 @@ export function CourseCurriculum({ course }: { course: Course }) {
                       variant="ghost"
                       fields={lessonFields(lesson)}
                     />
+                    <ActionButton
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      action={deleteEntityAction.bind(null, "lesson", lesson.id)}
+                      confirm={{
+                        title: "Hapus pelajaran ini?",
+                        description: `"${lesson.title}" akan dihapus permanen. Pelajaran yang sudah diselesaikan peserta tidak dapat dihapus.`,
+                      }}
+                      confirmLabel="Hapus pelajaran"
+                      pendingLabel="Menghapus…"
+                      destructive
+                    >
+                      Hapus
+                    </ActionButton>
                   </li>
                 ))}
                 {courseModule.lessons.length === 0 ? (
