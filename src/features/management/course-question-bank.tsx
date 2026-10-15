@@ -12,7 +12,7 @@ import { QuestionCard } from "@/features/management/question-card";
 import { db } from "@/lib/db";
 import { QUESTION_TYPE_LABELS } from "@/lib/question-types";
 import { requireAdmin } from "@/services/access";
-import { questionWhere } from "@/services/question-bank";
+import { BANK_ORDER, questionWhere } from "@/services/question-bank";
 import { ensureBatchSynced } from "@/services/course-sync";
 
 export type QuestionBankFilters = {
@@ -23,7 +23,11 @@ export type QuestionBankFilters = {
   page?: string;
 };
 
-export async function CourseQuestionBank({ courseId, filters, batchId }: {
+export async function CourseQuestionBank({
+  courseId,
+  filters,
+  batchId,
+}: {
   courseId: string;
   filters: QuestionBankFilters;
   batchId?: string;
@@ -31,7 +35,13 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
   await requireAdmin();
   if (batchId) await ensureBatchSynced(batchId);
   const course = await db.course.findFirst({
-    where: { id: courseId, deletedAt: null, ...(batchId ? { batches: { some: { id: batchId, deletedAt: null } } } : { sourceCourseId: null }) },
+    where: {
+      id: courseId,
+      deletedAt: null,
+      ...(batchId
+        ? { batches: { some: { id: batchId, deletedAt: null } } }
+        : { sourceCourseId: null }),
+    },
     select: { id: true, title: true },
   });
   if (!course) notFound();
@@ -76,17 +86,33 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
           options: { orderBy: { position: "asc" } },
           _count: { select: { assessments: true } },
         },
-        orderBy: { id: "asc" },
+        orderBy: BANK_ORDER,
       },
     },
-    orderBy: [{ topic: "asc" }, { id: "asc" }],
+    orderBy: BANK_ORDER,
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });
   const allTotal = topics.reduce((sum, item) => sum + item._count._all, 0);
   const topicNames = topics.map((item) => item.topic);
-  const base = batchId ? `/admin/training/${batchId}/questions` : `/admin/question-bank/${courseId}`;
+  const base = batchId
+    ? `/admin/training/${batchId}/questions`
+    : `/admin/question-bank/${courseId}`;
   const filtered = Boolean(filters.q || filters.topic || type || difficulty);
+  // Urutan diatur hanya di bank soal induk, dan hanya pada daftar utuh: menukar
+  // dengan tetangga yang tersembunyi oleh filter akan tampak tidak terjadi apa-apa.
+  const canReorder = !batchId && !filtered;
+  const syncOf = (question: {
+    sourceQuestionId: string | null;
+    detached: boolean;
+  }) =>
+    !batchId
+      ? undefined
+      : !question.sourceQuestionId
+        ? ("local" as const)
+        : question.detached
+          ? ("detached" as const)
+          : ("follows" as const);
   const topicHref = (topic?: string) => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries({ ...activeFilters, topic }))
@@ -98,9 +124,15 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Kelola soal"
-        backHref={batchId ? `/admin/training/${batchId}` : "/admin/question-bank"}
+        backHref={
+          batchId ? `/admin/training/${batchId}` : "/admin/question-bank"
+        }
         backLabel={batchId ? "Kembali ke training" : "Bank soal / Semua course"}
-        description={batchId ? `${course.title} · Soal khusus training ini; perubahan tidak memengaruhi course induk.` : course.title}
+        description={
+          batchId
+            ? `${course.title} · Soal mengikuti bank soal induk. Soal yang disunting atau diarsipkan di sini terlepas dari induk dan tidak memengaruhinya.`
+            : course.title
+        }
         action={<QuestionEditor course={course} topics={topicNames} />}
       />
       <div className="mb-5 flex items-center gap-2 text-sm text-ink-600">
@@ -232,7 +264,9 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
           </Link>
         ) : (
           <span className="text-xs text-ink-500">
-            Diurutkan berdasarkan topik
+            {batchId
+              ? "Urutan mengikuti bank soal induk"
+              : "Urutan ini dipakai di setiap training dan ujian"}
           </span>
         )}
       </div>
@@ -257,7 +291,8 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
                 requiresReason: question.requiresReason,
                 parentId: question.parentId,
                 usageCount: question._count.assessments,
-                children: question.children?.map(child => ({
+                sync: syncOf(question),
+                children: question.children?.map((child) => ({
                   id: child.id,
                   text: child.text,
                   topic: child.topic,
@@ -273,11 +308,20 @@ export async function CourseQuestionBank({ courseId, filters, batchId }: {
                   requiresReason: child.requiresReason,
                   parentId: child.parentId,
                   usageCount: child._count.assessments,
+                  sync: syncOf(child),
                 })),
               }}
               course={course}
               topics={topicNames}
               number={(page - 1) * PAGE_SIZE + index + 1}
+              move={
+                canReorder
+                  ? {
+                      up: (page - 1) * PAGE_SIZE + index > 0,
+                      down: (page - 1) * PAGE_SIZE + index + 1 < total,
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>

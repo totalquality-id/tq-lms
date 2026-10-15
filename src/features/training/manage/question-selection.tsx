@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -31,11 +31,9 @@ export type Topic = { topic: string; available: number };
    ------------------------------------------------------------------------- */
 
 /**
- * Daftar centang seluruh bank soal course, dikelompokkan per topik.
- *
- * Urutan pengiriman mengikuti urutan pada halaman, dan urutan itulah yang
- * disimpan sebagai urutan soal — jadi apa yang trainer lihat di sini sama
- * dengan apa yang peserta terima, kecuali pengacakan dinyalakan.
+ * Daftar centang seluruh bank soal course, dalam urutan dan penomoran yang
+ * sama dengan bank soal. Peserta menerima soal terpilih dalam urutan ini juga,
+ * kecuali pengacakan dinyalakan.
  */
 export function ManualQuestionPicker({
   batchId,
@@ -101,16 +99,6 @@ function PickerBody({
     {},
   );
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, BankQuestion[]>();
-    for (const question of bank) {
-      const list = map.get(question.topic);
-      if (list) list.push(question);
-      else map.set(question.topic, [question]);
-    }
-    return [...map.entries()];
-  }, [bank]);
-
   useEffect(() => {
     if (!state.success) return;
     toast.success(state.success);
@@ -133,47 +121,48 @@ function PickerBody({
   return (
     <form action={action} className="space-y-4">
       <div className="max-h-[50vh] space-y-4 overflow-y-auto pr-1">
-        {grouped.map(([topic, questions]) => (
-          <fieldset key={topic} className="space-y-1.5">
-            <legend className="text-xs font-semibold tracking-wider text-ink-500 uppercase">
-              {topic}
-            </legend>
-            {questions.map((question) => (
-              <label
-                key={question.id}
-                className="flex cursor-pointer items-start gap-2.5 rounded-md border border-ink-200 px-3 py-2.5 text-sm hover:bg-ink-50 has-checked:border-brand-400 has-checked:bg-brand-50"
-              >
-                <input
-                  type="checkbox"
-                  name="questionId"
-                  value={question.id}
-                  defaultChecked={chosen.has(question.id)}
-                  onChange={(event) =>
-                    setChosen((current) => {
-                      const next = new Set(current);
-                      if (event.target.checked) next.add(question.id);
-                      else next.delete(question.id);
-                      return next;
-                    })
-                  }
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-brand-600)]"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-ink-800">{question.text}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge tone="neutral">
-                      {labels[question.type] ?? question.type}
-                    </Badge>
-                    <span className="text-xs text-ink-500">
-                      {labels[question.difficulty] ?? question.difficulty} ·{" "}
-                      {question.points} poin
-                    </span>
+        <fieldset className="space-y-1.5">
+          <legend className="sr-only">Soal di bank soal</legend>
+          {bank.map((question, index) => (
+            <label
+              key={question.id}
+              className="flex cursor-pointer items-start gap-2.5 rounded-md border border-ink-200 px-3 py-2.5 text-sm hover:bg-ink-50 has-checked:border-brand-400 has-checked:bg-brand-50"
+            >
+              <input
+                type="checkbox"
+                name="questionId"
+                value={question.id}
+                defaultChecked={chosen.has(question.id)}
+                onChange={(event) =>
+                  setChosen((current) => {
+                    const next = new Set(current);
+                    if (event.target.checked) next.add(question.id);
+                    else next.delete(question.id);
+                    return next;
+                  })
+                }
+                className="mt-0.5 size-4 shrink-0 accent-[var(--color-brand-600)]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-ink-500">
+                  SOAL {index + 1} · {question.topic}
+                </span>
+                <span className="mt-0.5 block text-ink-800">
+                  {question.text}
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Badge tone="neutral">
+                    {labels[question.type] ?? question.type}
+                  </Badge>
+                  <span className="text-xs text-ink-500">
+                    {labels[question.difficulty] ?? question.difficulty} ·{" "}
+                    {question.points} poin
                   </span>
                 </span>
-              </label>
-            ))}
-          </fieldset>
-        ))}
+              </span>
+            </label>
+          ))}
+        </fieldset>
       </div>
 
       {state.error ? <FormError>{state.error}</FormError> : null}

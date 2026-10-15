@@ -188,12 +188,18 @@ async function main() {
       return;
     }
 
-    // Satu batch atomik, diurutkan sesuai berkas.
+    // Satu batch atomik, diurutkan sesuai berkas: soal baru menyusul di akhir bank soal.
+    const last = await db.question.aggregate({
+      where: { courseId: COURSE_ID, parentId: null },
+      _max: { position: true },
+    });
+    const start = (last._max.position ?? 0) + 1;
     await db.$transaction(
-      fresh.map(({ data }) =>
+      fresh.map(({ data }, index) =>
         db.question.create({
           data: {
             courseId: data.courseId,
+            position: start + index,
             topic: data.topic,
             difficulty: data.difficulty,
             type: data.type,

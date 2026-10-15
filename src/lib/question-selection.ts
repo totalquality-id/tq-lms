@@ -11,7 +11,7 @@ import type { SelectionMode } from "@prisma/client";
  */
 export type SelectionRule = { topic: string; count: number };
 
-/** Soal sebagaimana dibutuhkan pemilihan: identitas, topik, urutan stabil. */
+/** Soal sebagaimana dibutuhkan pemilihan: identitas dan topik, dalam urutan bank soal. */
 export type SelectableQuestion = { id: string; topic: string };
 
 export type RuleOutcome = {
@@ -87,16 +87,19 @@ export function applyRules<T extends SelectableQuestion>(
 
   // Urutan topik tidak boleh membocorkan struktur aturan kepada peserta:
   // tanpa pengacakan akhir, semua soal Klausul 4 selalu muncul berurutan.
-  // Namun, jika trainer mematikan opsi acak, maka urutan asli (dan pengelompokan topik) dipertahankan.
-  return { questions: randomize ? shuffle(questions) : questions, outcomes };
+  // Bila trainer mematikan pengacakan, soal terpilih tampil dalam urutan bank
+  // soal — urutan acuan — bukan dikelompokkan menurut urutan aturan.
+  if (randomize) return { questions: shuffle(questions), outcomes };
+  const picked = new Set(questions);
+  return { questions: bank.filter((question) => picked.has(question)), outcomes };
 }
 
 /**
  * Memilih paket soal untuk satu percobaan.
  *
- * `manual` adalah daftar yang disusun trainer, sudah dalam urutannya. Pada mode
- * MANUAL urutan itu dipertahankan kecuali pengacakan soal dinyalakan — trainer
- * yang menyusun urutan biasanya memang memaksudkannya.
+ * `manual` adalah soal yang dipilih trainer dan `bank` seluruh bank soal,
+ * keduanya sudah dalam urutan bank soal. Tanpa pengacakan, urutan itulah yang
+ * diterima peserta pada setiap mode.
  */
 export function selectQuestions<T extends SelectableQuestion>(
   {

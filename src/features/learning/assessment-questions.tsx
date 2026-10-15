@@ -1,20 +1,41 @@
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import type { VisibleQuestion } from "@/lib/grading";
+import { isAnswerable, questionNumbers, type VisibleQuestion } from "@/lib/grading";
 import { labels } from "@/lib/utils";
 
+/**
+ * Soal sebagaimana dikerjakan peserta. Penomorannya sama dengan bank soal:
+ * studi kasus memakai satu nomor dan sub-soalnya 1.1, 1.2, …, ditampilkan
+ * menjorok di bawah teks kasusnya.
+ */
 export function AssessmentQuestions({
   questions,
 }: {
   questions: VisibleQuestion[];
 }) {
+  const numbers = questionNumbers(questions);
   return (
     <>
-      {questions.map((question, index) => (
-        <Card key={question.id}>
+      {questions.map((question) => (
+        <Card
+          key={question.id}
+          className={
+            numbers.get(question.id)?.includes(".")
+              ? "ml-4 border-l-4 border-l-brand-200 sm:ml-8"
+              : undefined
+          }
+        >
           <CardHeader
-            title={`Soal ${index + 1}`}
-            description={`${labels[question.type] ?? question.type}${question.type !== "CASE_STUDY" ? ` · ${question.points} poin` : ""}`}
+            title={
+              isAnswerable(question)
+                ? `Soal ${numbers.get(question.id)}`
+                : `Studi kasus ${numbers.get(question.id)}`
+            }
+            description={
+              isAnswerable(question)
+                ? `${labels[question.type] ?? question.type} · ${question.points} poin`
+                : "Baca kasus ini untuk menjawab sub-soal di bawahnya."
+            }
           />
           <CardBody className="space-y-3">
             <p
@@ -23,7 +44,7 @@ export function AssessmentQuestions({
             >
               {question.text}
             </p>
-            {question.type !== "CASE_STUDY" ? <QuestionInput question={question} /> : null}
+            {isAnswerable(question) ? <QuestionInput question={question} /> : null}
           </CardBody>
         </Card>
       ))}

@@ -15,6 +15,7 @@ import { CourseCurriculum } from "@/features/management/course-curriculum";
 import { PreviewDialog } from "@/features/management/preview-dialog";
 import { LessonContent } from "@/features/learning/lesson-content";
 import { db } from "@/lib/db";
+import { readBlocks } from "@/lib/lesson-blocks";
 import { dateRange, labels, minutes } from "@/lib/utils";
 import { batchOverview } from "@/services/batch";
 
@@ -238,7 +239,10 @@ export async function ManageOverview({ id }: { id: string }) {
                               {labels[lesson.type] ?? lesson.type} ·{" "}
                               {minutes(lesson.duration)}
                             </p>
-                            <LessonContent lesson={lesson} />
+                            <LessonContent
+                              lessonId={lesson.id}
+                              blocks={readBlocks(lesson.blocks)}
+                            />
                           </div>
                         </PreviewDialog>
                       </li>
@@ -257,20 +261,24 @@ export async function ManageOverview({ id }: { id: string }) {
         </Card>
       </section>}
 
-      {admin && !["OPEN", "ONGOING"].includes(batch.status) ? (
+      {admin ? (
         <div className="flex items-center justify-end gap-3">
-          <ArchiveButton
-            entity="batch"
-            id={id}
-            description="Training disembunyikan dari daftar. Riwayat peserta, sertifikat, dan datanya tetap tersimpan."
-            variant="secondary"
-          />
-          <span className="text-ink-300">·</span>
+          {!["OPEN", "ONGOING"].includes(batch.status) ? (
+            <>
+              <ArchiveButton
+                entity="batch"
+                id={id}
+                description="Training disembunyikan dari daftar. Riwayat peserta, sertifikat, dan datanya tetap tersimpan."
+                variant="secondary"
+              />
+              <span className="text-ink-300">·</span>
+            </>
+          ) : null}
           <DeleteEntityButton
             entity="batch"
             id={id}
             title={batch.title}
-            description="Training beserta salinan course-nya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan."
+            description="Training beserta salinan course, penilaian, tugas, dan materinya akan dihapus permanen. Training yang sudah memiliki peserta tidak dapat dihapus — gunakan arsip."
           />
         </div>
       ) : null}

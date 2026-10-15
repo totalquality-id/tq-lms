@@ -1,12 +1,17 @@
 import type { Prisma } from "@prisma/client";
-import { ExternalLink } from "lucide-react";
+import { PencilLine } from "lucide-react";
+import { deleteEntityAction } from "@/app/actions";
 import { SectionHeader } from "@/components/layout/page-header";
+import { ActionButton } from "@/components/ui/action-button";
+import { Button } from "@/components/ui/button";
+import Link from "@/components/ui/navigation-link";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/table";
 import { EntityForm, ReorderButtons } from "@/features/management/entity-form";
 import { lessonFields } from "@/features/management/fields";
 import { PreviewDialog } from "@/features/management/preview-dialog";
 import { LessonContent } from "@/features/learning/lesson-content";
+import { readBlocks } from "@/lib/lesson-blocks";
 import { labels, minutes } from "@/lib/utils";
 
 const moduleField = (title?: string) => [{ name: "title", label: "Judul modul", required: true, full: true, defaultValue: title }];
@@ -55,6 +60,21 @@ export function CourseCurriculum({ course }: { course: Course }) {
                       variant="ghost"
                       fields={moduleField(courseModule.title)}
                     />
+                    <ActionButton
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      action={deleteEntityAction.bind(null, "module", courseModule.id)}
+                      confirm={{
+                        title: "Hapus modul ini?",
+                        description: `"${courseModule.title}" beserta ${courseModule.lessons.length} pelajaran di dalamnya akan dihapus permanen. Modul yang sudah dipelajari peserta tidak dapat dihapus.`,
+                      }}
+                      confirmLabel="Hapus modul"
+                      pendingLabel="Menghapus…"
+                      destructive
+                    >
+                      Hapus
+                    </ActionButton>
                   </div>
                 }
               />
@@ -83,36 +103,39 @@ export function CourseCurriculum({ course }: { course: Course }) {
                           {labels[lesson.type] ?? lesson.type} ·{" "}
                           {minutes(lesson.duration)}
                         </p>
-                        <LessonContent lesson={lesson} />
+                        <LessonContent
+                          lessonId={lesson.id}
+                          blocks={readBlocks(lesson.blocks)}
+                        />
                       </div>
                     </PreviewDialog>
-                    {lesson.resourceUrl ? (
-                      <a
-                        href={lesson.resourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`Buka materi ${lesson.title}`}
-                        className="text-ink-400 hover:text-brand-600"
-                      >
-                        <ExternalLink className="size-4" aria-hidden />
-                      </a>
-                    ) : null}
                     <ReorderButtons
                       entity="lesson"
                       id={lesson.id}
                       first={position === 0}
                       last={position === courseModule.lessons.length - 1}
                     />
-                    <EntityForm
-                      entity="lesson"
-                      id={lesson.id}
-                      parentId={courseModule.id}
-                      title="Edit pelajaran"
-                      buttonLabel="Edit"
-                      size="sm"
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={`/admin/lessons/${lesson.id}`}>
+                        <PencilLine aria-hidden />
+                        Edit isi
+                      </Link>
+                    </Button>
+                    <ActionButton
                       variant="ghost"
-                      fields={lessonFields(lesson)}
-                    />
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      action={deleteEntityAction.bind(null, "lesson", lesson.id)}
+                      confirm={{
+                        title: "Hapus pelajaran ini?",
+                        description: `"${lesson.title}" akan dihapus permanen. Pelajaran yang sudah diselesaikan peserta tidak dapat dihapus.`,
+                      }}
+                      confirmLabel="Hapus pelajaran"
+                      pendingLabel="Menghapus…"
+                      destructive
+                    >
+                      Hapus
+                    </ActionButton>
                   </li>
                 ))}
                 {courseModule.lessons.length === 0 ? (

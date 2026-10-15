@@ -29,6 +29,7 @@ export const UPLOAD_TYPES: Record<string, string> = {
   gif: "image/gif",
   zip: "application/zip",
   mp4: "video/mp4",
+  webm: "video/webm",
 };
 
 /** Batas ukuran materi pendukung. Tugas memakai `Assignment.maxBytes`. */

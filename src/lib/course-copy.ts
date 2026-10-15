@@ -31,8 +31,9 @@ export function courseCopyData(source: SourceCourse, actorId: string) {
           create: module.lessons.map((lesson) => ({
             title: lesson.title,
             type: lesson.type,
-            content: lesson.content,
-            resourceUrl: lesson.resourceUrl,
+            // Berkas di dalam blok tidak digandakan: salinan merujuk objek
+            // penyimpanan yang sama dengan course induknya.
+            blocks: (lesson.blocks ?? []) as Prisma.InputJsonValue,
             duration: lesson.duration,
             position: lesson.position,
             required: lesson.required,

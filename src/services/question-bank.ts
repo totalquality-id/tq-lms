@@ -12,7 +12,11 @@ import {
 } from "@/schemas/assessment";
 import { requireAdmin, requireBatchStaff } from "./access";
 import { notifyParticipants } from "./notification";
-import { ensureBatchSynced, syncCopiesOfCourse } from "./course-sync";
+import {
+  ensureBatchSynced,
+  syncCopiesOfCourse,
+  syncCopyQuestions,
+} from "./course-sync";
 
 /**
  * Menyimpan satu butir soal beserta pilihannya. Pilihan ditulis ulang setiap
@@ -33,12 +37,16 @@ export async function saveQuestion(
       : [];
 
   const questionId = await db.$transaction(async (tx) => {
-    await tx.course.findFirstOrThrow({
+    const course = await tx.course.findFirstOrThrow({
       where: { id: data.courseId, deletedAt: null },
+      select: { sourceCourseId: true },
     });
-    if (id) await tx.question.findFirstOrThrow({
-      where: { id, courseId: data.courseId, deletedAt: null },
-    });
+    const existing = id
+      ? await tx.question.findFirstOrThrow({
+        where: { id, courseId: data.courseId, deletedAt: null },
+        select: { sourceQuestionId: true },
+      })
+      : null;
 
     const values = {
       courseId: data.courseId,
@@ -53,9 +61,24 @@ export async function saveQuestion(
       correctText: data.type === "SHORT_TEXT" ? data.correctText : null,
     };
 
+    // Salinan training yang disunting di training terlepas dari induknya, agar
+    // suntingan itu tidak ditimpa pada sinkron berikutnya.
     const question = id
-      ? await tx.question.update({ where: { id }, data: values })
-      : await tx.question.create({ data: values });
+      ? await tx.question.update({
+        where: { id },
+        data: {
+          ...values,
+          ...(course.sourceCourseId && existing?.sourceQuestionId
+            ? { detached: true }
+            : {}),
+        },
+      })
+      : await tx.question.create({
+        data: {
+          ...values,
+          position: await nextPosition(tx, data.courseId, values.parentId),
+        },
+      });
 
     if (id) await tx.questionOption.deleteMany({ where: { questionId: id } });
     if (choices.length)
@@ -92,12 +115,34 @@ export async function saveQuestion(
   return questionId;
 }
 
+/** Posisi berikutnya di antara soal sesaudara: soal baru masuk di akhir. */
+async function nextPosition(
+  tx: Prisma.TransactionClient,
+  courseId: string,
+  parentId: string | null,
+) {
+  const max = await tx.question.aggregate({
+    where: { courseId, parentId },
+    _max: { position: true },
+  });
+  return (max._max.position ?? 0) + 1;
+}
+
 export async function archiveQuestion(id: string) {
   const actor = await requireAdmin();
-  const question = await db.question.update({ 
-    where: { id }, 
-    data: { deletedAt: new Date() },
-    select: { courseId: true }
+  const current = await db.question.findUniqueOrThrow({
+    where: { id },
+    select: { sourceQuestionId: true },
+  });
+  // Mengarsipkan salinan di training adalah keputusan training itu sendiri,
+  // jadi salinannya terlepas dan tidak dihidupkan lagi oleh induknya.
+  const question = await db.question.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+      ...(current.sourceQuestionId ? { detached: true } : {}),
+    },
+    select: { courseId: true },
   });
   await db.auditLog.create({
     data: {
@@ -113,6 +158,102 @@ export async function archiveQuestion(id: string) {
   } catch (error) {
     console.error("Sinkron arsip soal ke training gagal:", error);
   }
+}
+
+/**
+ * Menaikkan atau menurunkan satu soal di antara soal sesaudaranya pada bank
+ * soal induk. Urutan ini menjadi acuan di setiap training dan ujian, jadi
+ * hanya dapat diatur di induk; salinan training mengikutinya lewat sinkron.
+ */
+export async function moveQuestion(id: string, direction: number) {
+  const actor = await requireAdmin();
+  if (direction !== -1 && direction !== 1) throw new Error("Arah tidak valid.");
+
+  const courseId = await db.$transaction(
+    async (tx) => {
+      const question = await tx.question.findFirstOrThrow({
+        where: { id, deletedAt: null },
+        select: {
+          courseId: true,
+          parentId: true,
+          course: { select: { sourceCourseId: true } },
+        },
+      });
+      if (question.course.sourceCourseId)
+        throw new Error(
+          "Urutan soal training mengikuti bank soal induk. Atur urutannya di menu Bank soal.",
+        );
+
+      const siblings = await tx.question.findMany({
+        where: {
+          courseId: question.courseId,
+          parentId: question.parentId,
+          deletedAt: null,
+        },
+        select: { id: true, position: true },
+        orderBy: [{ position: "asc" }, { id: "asc" }],
+      });
+      const index = siblings.findIndex((item) => item.id === id);
+      const target = index + direction;
+      if (target < 0 || target >= siblings.length) return null;
+      [siblings[index], siblings[target]] = [siblings[target], siblings[index]];
+
+      // Ditulis ulang 1..n: posisi lama bisa kembar, dan menukar dua angka
+      // kembar tidak mengubah apa pun.
+      for (const [order, item] of siblings.entries())
+        if (item.position !== order + 1)
+          await tx.question.update({
+            where: { id: item.id },
+            data: { position: order + 1 },
+          });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.id,
+          action: "REORDER",
+          entity: "question",
+          entityId: id,
+          metadata: { direction },
+        },
+      });
+      return question.courseId;
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+
+  if (courseId)
+    try {
+      await syncCopiesOfCourse(courseId);
+    } catch (error) {
+      console.error("Sinkron urutan soal ke training gagal:", error);
+    }
+}
+
+/**
+ * Mengembalikan salinan training yang terlepas agar kembali mengikuti induknya.
+ * Isi, pilihan jawaban, dan status arsipnya langsung disamakan dengan induk.
+ */
+export async function reattachQuestion(id: string) {
+  const actor = await requireAdmin();
+  const question = await db.question.findFirstOrThrow({
+    where: { id, sourceQuestionId: { not: null } },
+    select: { courseId: true },
+  });
+  await db.$transaction(
+    async (tx) => {
+      await tx.question.update({ where: { id }, data: { detached: false } });
+      await syncCopyQuestions(tx, question.courseId);
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.id,
+          action: "REATTACH",
+          entity: "question",
+          entityId: id,
+        },
+      });
+    },
+    { timeout: 30000 },
+  );
 }
 
 /**
@@ -161,7 +302,23 @@ export async function saveAssessment(
     // Hanya peralihan draft menjadi terbit yang dikabarkan; menyunting
     // penilaian yang sudah terbit bukan kabar baru.
     announce = data.published && !existing.published;
-    await db.assessment.update({ where: { id }, data: values });
+    await db.$transaction(async (tx) => {
+      await tx.assessment.update({ where: { id }, data: values });
+      // Status lulus percobaan disimpan, jadi ikut disamakan ketika nilai
+      // kelulusan berubah. Tanpa ini peserta melihat "lulus" pada percobaannya
+      // sementara syarat sertifikat, yang membaca nilai kelulusan terbaru,
+      // menyatakan sebaliknya.
+      if (existing.passingGrade !== data.passingGrade) {
+        await tx.assessmentAttempt.updateMany({
+          where: { assessmentId: id, score: { gte: data.passingGrade } },
+          data: { passed: true },
+        });
+        await tx.assessmentAttempt.updateMany({
+          where: { assessmentId: id, score: { lt: data.passingGrade } },
+          data: { passed: false },
+        });
+      }
+    });
   } else {
     await db.assessment.create({ data: { ...values, batchId } });
   }
@@ -199,9 +356,16 @@ export async function archiveAssessment(batchId: string, id: string) {
   });
 }
 
+/** Urutan bank soal: acuan tunggal untuk bank, pemilihan manual, dan ujian. */
+export const BANK_ORDER = [
+  { position: "asc" },
+  { id: "asc" },
+] satisfies Prisma.QuestionOrderByWithRelationInput[];
+
 /**
- * Menetapkan daftar soal yang dipakai satu penilaian, pada urutan yang
- * diberikan, lalu memindahkan modenya ke MANUAL.
+ * Menetapkan daftar soal yang dipakai satu penilaian, lalu memindahkan modenya
+ * ke MANUAL. Urutannya mengikuti bank soal, bukan urutan pengiriman formulir,
+ * sehingga ujian tidak pernah tersusun berbeda dari bank soal acuannya.
  *
  * Yang disimpan hanyalah rujukan ke soal. Teks dan kunci jawabannya baru
  * dibekukan ketika percobaan dimulai, sehingga menyunting soal masih
@@ -230,17 +394,15 @@ export async function setAssessmentQuestions(
         deletedAt: null,
       },
       select: { id: true },
+      orderBy: BANK_ORDER,
     });
-    const allowed = new Set(valid.map((question) => question.id));
 
     await tx.assessmentQuestion.deleteMany({ where: { assessmentId } });
-    const rows = questionIds
-      .filter((id) => allowed.has(id))
-      .map((questionId, index) => ({
-        assessmentId,
-        questionId,
-        position: index + 1,
-      }));
+    const rows = valid.map((question, index) => ({
+      assessmentId,
+      questionId: question.id,
+      position: index + 1,
+    }));
     if (rows.length === 0)
       throw new Error(
         "Soal yang dipilih tidak ada pada bank soal course training ini.",
@@ -286,8 +448,10 @@ export async function setSelectionRules(
     include: { batch: { select: { courseId: true } } },
   });
 
+  // Aturan menghitung soal utama: studi kasus dihitung satu beserta
+  // sub-soalnya, sama seperti saat soal diundi untuk peserta.
   const bank = await db.question.findMany({
-    where: { courseId: assessment.batch.courseId, deletedAt: null },
+    where: { courseId: assessment.batch.courseId, deletedAt: null, parentId: null },
     select: { id: true, topic: true },
   });
 
@@ -330,7 +494,7 @@ export async function courseTopics(batchId: string) {
     select: { courseId: true },
   });
   const bank = await db.question.findMany({
-    where: { courseId: batch.courseId, deletedAt: null },
+    where: { courseId: batch.courseId, deletedAt: null, parentId: null },
     select: { id: true, topic: true },
   });
   return topicCounts(bank);
@@ -353,7 +517,7 @@ export async function courseQuestions(batchId: string) {
       difficulty: true,
       points: true,
     },
-    orderBy: [{ topic: "asc" }, { text: "asc" }],
+    orderBy: BANK_ORDER,
   });
 }
 

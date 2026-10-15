@@ -22,6 +22,7 @@ export function ActionButton({
   confirm,
   confirmLabel = "Lanjutkan",
   pendingLabel = "Memproses…",
+  destructive,
   ...props
 }: Omit<ButtonProps, "onClick" | "action"> & {
   action: () => Promise<FormState>;
@@ -29,6 +30,8 @@ export function ActionButton({
   confirm?: { title: string; description: string };
   confirmLabel?: string;
   pendingLabel?: string;
+  /** Tombol konfirmasi berwarna merah walau tombol pemicunya tidak. */
+  destructive?: boolean;
 }) {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
@@ -79,7 +82,9 @@ export function ActionButton({
           </Button>
           <Button
             type="button"
-            variant={props.variant === "danger" ? "danger" : "primary"}
+            variant={
+              destructive || props.variant === "danger" ? "danger" : "primary"
+            }
             disabled={pending}
             onClick={run}
           >

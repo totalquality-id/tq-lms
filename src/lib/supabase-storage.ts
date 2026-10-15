@@ -17,6 +17,13 @@ import "server-only";
 /** Umur tautan unduhan. Cukup untuk memulai unduhan, bukan untuk dibagikan. */
 const DOWNLOAD_TTL = 60;
 
+/**
+ * Umur tautan untuk media yang ditampilkan di halaman (video, PDF, gambar).
+ * Pemutar video meminta potongan berkas berulang kali selama diputar, jadi
+ * tautannya harus bertahan sepanjang satu sesi belajar.
+ */
+const INLINE_TTL = 60 * 60;
+
 export function storageConfigured() {
   return Boolean(
     process.env.SUPABASE_URL &&
@@ -83,13 +90,24 @@ export async function signUpload(key: string): Promise<SignedUpload> {
  * dibuka sebagai dokumen bernama acak.
  */
 export async function signDownload(key: string, filename: string) {
+  const url = await signObject(key, DOWNLOAD_TTL);
+  if (!url) return null;
+  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(filename)}`;
+}
+
+/** Tautan untuk ditampilkan langsung di halaman, tanpa memaksa unduhan. */
+export async function signInline(key: string) {
+  return signObject(key, INLINE_TTL);
+}
+
+async function signObject(key: string, expiresIn: number) {
   const { base, bucket, headers } = storage();
   const response = await fetch(
     `${base}/object/sign/${bucket}/${encodeKey(key)}`,
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ expiresIn: DOWNLOAD_TTL }),
+      body: JSON.stringify({ expiresIn }),
     },
   );
   const body = (await response.json().catch(() => ({}))) as {
@@ -99,8 +117,7 @@ export async function signDownload(key: string, filename: string) {
   };
   const signed = body.signedURL ?? body.signedUrl;
   if (!response.ok || !signed) return null;
-  const url = `${base}${signed.startsWith("/") ? "" : "/"}${signed}`;
-  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(filename)}`;
+  return `${base}${signed.startsWith("/") ? "" : "/"}${signed}`;
 }
 
 export type ObjectInfo = { size: number; mimeType: string };

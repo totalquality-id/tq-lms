@@ -50,6 +50,24 @@ test("rules take the requested count from each topic", () => {
   ]);
 });
 
+test("without randomising, rules return questions in bank order, not rule order", () => {
+  // Urutan bank soal adalah acuan: aturan Klausul 5 yang ditulis lebih dulu
+  // tidak boleh membuat soal Klausul 5 tampil sebelum Klausul 4.
+  const { questions } = applyRules(
+    [
+      { topic: "Annex A", count: 1 },
+      { topic: "Klausul 5", count: 1 },
+      { topic: "Klausul 4", count: 2 },
+    ],
+    bank,
+    false,
+  );
+  assert.deepEqual(
+    questions.map((q) => q.id),
+    ["a1", "a2", "b1", "c1"],
+  );
+});
+
 test("a topic with too few questions yields what exists and reports the shortfall", () => {
   // Menolak memulai ujian karena satu topik kurang dua soal merugikan peserta
   // yang sudah duduk di kelas; yang perlu tahu adalah trainer.

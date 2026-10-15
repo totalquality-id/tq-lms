@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { LessonContent } from "@/features/learning/lesson-content";
 import { LessonComplete } from "@/features/learning/lesson-complete";
+import { readBlocks } from "@/lib/lesson-blocks";
 import { labels, minutes } from "@/lib/utils";
 import { buildProgress, myEnrollment } from "@/services/learning";
 
@@ -69,7 +70,7 @@ export default async function LessonPage({
           description={`${labels[lesson.type] ?? lesson.type} · ${minutes(lesson.duration)}`}
         />
         <CardBody className="space-y-5">
-          <LessonContent lesson={lesson} />
+          <LessonContent lessonId={lesson.id} blocks={readBlocks(lesson.blocks)} />
         </CardBody>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-4 py-3 sm:px-5">
           <LessonComplete

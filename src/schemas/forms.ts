@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  LessonType,
   TrainingMode,
   TrainingStatus,
   UserRole,
@@ -93,21 +92,11 @@ export const batchSchema = z
     path: ["meetingUrl"],
     message: "Isi tautan pertemuan untuk kelas online/hybrid.",
   });
-export const lessonSchema = z
-  .object({
-    title: text,
-    type: z.enum(LessonType),
-    content: z.string().max(50000).default(""),
-    resourceUrl: url,
-    duration: z.coerce.number().int().min(1).max(600),
-  })
-  .refine(
-    (v) => (v.type === "TEXT" ? v.content.trim().length > 0 : !!v.resourceUrl),
-    {
-      path: ["content"],
-      message: "Isi artikel atau tautan materi yang sesuai.",
-    },
-  );
+/** Membuat pelajaran baru; isinya disusun di halaman editor pelajaran. */
+export const lessonSchema = z.object({
+  title: text,
+  duration: z.coerce.number().int().min(1).max(600),
+});
 export type FormState = {
   success?: string;
   error?: string;

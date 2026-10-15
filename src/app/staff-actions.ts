@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { failure } from "@/lib/action-result";
 import type { FormState } from "@/schemas/forms";
-import { gradeEssay, previewAssessment } from "@/services/assessment";
+import { previewAssessment, reviewAnswer } from "@/services/assessment";
 import { issueCertificate, revokeCertificate } from "@/services/certificate";
 import {
   archiveAssignment,
@@ -19,6 +19,8 @@ import {
 import {
   archiveAssessment,
   archiveQuestion,
+  moveQuestion,
+  reattachQuestion,
   saveAssessment,
   saveQuestion,
   setAssessmentQuestions,
@@ -88,6 +90,7 @@ export async function reviewSubmissionAction(
   try {
     await reviewSubmission(batchId, submissionId, entries(form));
     revalidatePath("/trainer/reviews");
+    revalidatePath("/admin/reviews");
     revalidatePath(`/trainer/training/${batchId}`, "layout");
     revalidatePath(`/admin/training/${batchId}`, "layout");
     return { success: "Penilaian tugas tersimpan." };
@@ -178,19 +181,22 @@ export async function selectionRulesAction(
   }
 }
 
-export async function gradeEssayAction(
+export async function reviewAnswerAction(
   answerId: string,
   _state: FormState,
   form: FormData,
 ): Promise<FormState> {
   try {
-    await gradeEssay(
+    await reviewAnswer(
       answerId,
       Number(form.get("score")),
       String(form.get("feedback") ?? ""),
     );
     revalidatePath("/trainer/reviews");
-    return { success: "Nilai esai tersimpan." };
+    revalidatePath("/admin/reviews");
+    revalidatePath("/admin/training/[id]", "layout");
+    revalidatePath("/trainer/training/[id]", "layout");
+    return { success: "Nilai jawaban tersimpan." };
   } catch (error) {
     return failure(error);
   }
@@ -223,6 +229,36 @@ export async function archiveQuestionAction(id: string): Promise<FormState> {
     revalidatePath("/admin/question-bank");
     revalidatePath("/admin/question-bank/[courseId]", "page");
     return { success: "Soal diarsipkan." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function revalidateQuestionBanks() {
+  revalidatePath("/admin/training/[id]", "layout");
+  revalidatePath("/trainer/training/[id]", "layout");
+  revalidatePath("/admin/question-bank");
+  revalidatePath("/admin/question-bank/[courseId]", "page");
+}
+
+export async function moveQuestionAction(
+  id: string,
+  direction: number,
+): Promise<FormState> {
+  try {
+    await moveQuestion(id, direction);
+    revalidateQuestionBanks();
+    return { success: "Urutan soal diperbarui." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reattachQuestionAction(id: string): Promise<FormState> {
+  try {
+    await reattachQuestion(id);
+    revalidateQuestionBanks();
+    return { success: "Soal kembali mengikuti bank soal induk." };
   } catch (error) {
     return failure(error);
   }

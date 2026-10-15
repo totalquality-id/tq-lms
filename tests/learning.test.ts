@@ -5,7 +5,12 @@ import { calendarDate, calendarKey, daysBetween } from "@/lib/utils";
 import { questionSchema, parseOptions } from "@/schemas/assessment";
 import { toCsv } from "@/lib/csv";
 import { checkEligibility, type EligibilityInput } from "@/lib/eligibility";
-import { gradeAnswer, type SnapshotQuestion } from "@/lib/grading";
+import {
+  attemptScore,
+  gradeAnswer,
+  questionNumbers,
+  type SnapshotQuestion,
+} from "@/lib/grading";
 import {
   attendanceRate,
   buildProgress,
@@ -117,6 +122,57 @@ test("essays are left for a human to grade", () => {
     gradeAnswer(question({ type: "ESSAY", options: [] }), "…"),
     null,
   );
+});
+
+test("an answer submitted with a reason is graded on the answer alone", () => {
+  const item = question({ type: "TRUE_FALSE", requiresReason: true });
+  assert.equal(gradeAnswer(item, { answer: "a", reason: "Karena…" }), 2);
+  assert.equal(gradeAnswer(item, { answer: "b", reason: "Karena…" }), 0);
+});
+
+test("case study text is neither answered nor scored", () => {
+  const caseStudy = question({ id: "cs", type: "CASE_STUDY", points: 1, options: [] });
+  const sub = question({ id: "s1", parentId: "cs" });
+  // Poin lama yang tertinggal pada teks kasus tidak boleh membuat nilai
+  // maksimal di bawah 100.
+  assert.deepEqual(
+    attemptScore([caseStudy, sub], new Map([["s1", 2]])),
+    { pending: false, score: 100 },
+  );
+});
+
+test("an unanswered essay counts as zero, not as waiting for a trainer", () => {
+  // Bug lama: esai kosong tidak punya baris jawaban dan tidak pernah muncul
+  // di antrean, sehingga nilai percobaan kosong selamanya.
+  const essay = question({ id: "e1", type: "ESSAY", options: [] });
+  const other = question({ id: "e2", type: "ESSAY", options: [] });
+  const choice = question({ id: "c1" });
+  assert.deepEqual(
+    attemptScore([essay, other, choice], new Map([["e1", 1], ["c1", 2]])),
+    { pending: false, score: 50 },
+  );
+  // Esai yang dijawab tetapi belum dinilai tetap menahan nilai.
+  assert.equal(
+    attemptScore([essay, choice], new Map([["e1", null], ["c1", 2]])).pending,
+    true,
+  );
+});
+
+test("questions are numbered like the bank, with case study parts as 1.1", () => {
+  const labels = questionNumbers([
+    { id: "a" },
+    { id: "cs" },
+    { id: "s1", parentId: "cs" },
+    { id: "s2", parentId: "cs" },
+    { id: "b" },
+  ]);
+  assert.deepEqual(Object.fromEntries(labels), {
+    a: "1",
+    cs: "2",
+    s1: "2.1",
+    s2: "2.2",
+    b: "3",
+  });
 });
 
 /* -------------------------------------------------------------------------
@@ -250,6 +306,7 @@ function eligibility(overrides: {
   attendance?: { status: string }[];
   finalScore?: number | null;
   withExam?: boolean;
+  publishedExam?: boolean;
 }): EligibilityInput {
   const withExam = overrides.withExam ?? true;
   return {
@@ -273,9 +330,16 @@ function eligibility(overrides: {
       startDate: new Date("2026-07-01T02:00:00Z"),
       endDate: new Date("2026-07-03T09:00:00Z"),
       minimumAttendance: 80,
-      passingGrade: null,
       assessments: withExam
-        ? [{ id: "final", type: "FINAL_EXAM", passingGrade: 70 }]
+        ? [
+            {
+              id: "final",
+              title: "Ujian akhir",
+              type: "FINAL_EXAM",
+              passingGrade: 70,
+              published: overrides.publishedExam ?? true,
+            },
+          ]
         : [],
       assignments: [],
       evaluation: null,
@@ -390,4 +454,35 @@ test("CSV quotes separators and doubles embedded quotes", () => {
   assert.ok(csv.startsWith("﻿"), "harus diawali BOM agar rapi di Excel");
   assert.match(csv, /Training;Catatan/);
   assert.match(csv, /"Kelas ""A""; sesi pagi"/);
+});
+
+test("a final exam still in draft does not hold back a certificate", () => {
+  // Peserta tidak dapat mengerjakan ujian yang belum terbit, jadi ujian itu
+  // tidak boleh menjadi syarat yang mustahil dipenuhi.
+  const { eligible, requirements } = checkEligibility(
+    eligibility({ attendance: present, publishedExam: false }),
+  );
+  assert.equal(eligible, true);
+  assert.equal(
+    requirements.find((item) => item.label === "Ujian akhir")?.detail,
+    "Tidak ada ujian akhir pada training ini",
+  );
+});
+
+test("every published final exam must be passed, each at its own grade", () => {
+  const input = eligibility({ attendance: present, finalScore: 80 });
+  input.batch.assessments.push({
+    id: "final-2",
+    title: "Ujian praktik",
+    type: "FINAL_EXAM",
+    passingGrade: 85,
+    published: true,
+  });
+  input.attempts.push({ assessmentId: "final-2", submittedAt: new Date(), score: 84 });
+  const { eligible, requirements } = checkEligibility(input);
+  assert.equal(eligible, false);
+  assert.match(
+    requirements.find((item) => item.label === "Ujian akhir")!.detail,
+    /Ujian praktik: Nilai 84 \(minimum 85\)/,
+  );
 });

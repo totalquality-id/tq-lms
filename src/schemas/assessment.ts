@@ -7,6 +7,10 @@ export const DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
 export const answerValue = z.union([
   z.string().max(20000),
   z.array(z.string().max(200)).max(20),
+  z.object({
+    answer: z.union([z.string().max(20000), z.array(z.string().max(200)).max(20)]),
+    reason: z.string().max(20000),
+  }),
 ]);
 
 export const questionSchema = z

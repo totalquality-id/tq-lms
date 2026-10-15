@@ -36,7 +36,7 @@ export default async function CourseDetailPage({
         orderBy: { position: "asc" },
         include: { lessons: { orderBy: { position: "asc" } } },
       },
-      _count: { select: { copies: { where: { batches: { some: {} } } }, questions: true } },
+      _count: { select: { copies: { where: { batches: { some: {} } } }, questions: { where: { deletedAt: null, parentId: null } } } },
     },
   });
   if (!course) notFound();
@@ -78,8 +78,8 @@ export default async function CourseDetailPage({
                   { term: "Kode sertifikat", value: course.code },
                   { term: "Durasi", value: `${course.duration} jam` },
                   {
-                    term: "Nilai kelulusan",
-                    value: `${course.passingGrade} dari 100`,
+                    term: "Nilai kelulusan bawaan",
+                    value: `${course.passingGrade} dari 100 · untuk penilaian baru`,
                   },
                   {
                     term: "Alur belajar",

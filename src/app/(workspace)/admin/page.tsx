@@ -116,12 +116,12 @@ export default async function AdminDashboard() {
     {
       count: pendingAssignments,
       title: "Tugas menunggu penilaian",
-      href: "/trainer/reviews",
+      href: "/admin/reviews",
     },
     {
       count: pendingEssays,
       title: "Esai menunggu pemeriksaan",
-      href: "/trainer/reviews",
+      href: "/admin/reviews",
     },
     {
       count: withoutTrainer,

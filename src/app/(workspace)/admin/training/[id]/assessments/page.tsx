@@ -11,6 +11,7 @@ export default async function Page({
   const [{ id }, filters] = await Promise.all([params, searchParams]);
   return (
     <ManageAssessments
+      base="/admin/training"
       id={id}
       page={getPage(filters.page)}
       q={filters.q?.trim() || undefined}

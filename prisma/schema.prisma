@@ -88,7 +88,7 @@ enum AttendanceStatus {
 enum SelectionMode {
   /// Seluruh bank soal course, dibatasi questionLimit bila diisi.
   ALL
-  /// Hanya soal yang dipilih trainer, pada urutan yang ia tetapkan.
+  /// Hanya soal yang dipilih trainer, dalam urutan bank soal.
   MANUAL
   /// Sejumlah soal acak per topik, mengikuti selectionRules.
   RULES
@@ -192,6 +192,7 @@ model Course {
   thumbnail        String?
   published        Boolean         @default(false)
   duration         Int             @default(8)
+  /// Nilai awal untuk penilaian baru pada training course ini.
   passingGrade     Int             @default(70)
   sequential       Boolean         @default(false)
   createdAt        DateTime        @default(now())
@@ -222,9 +223,10 @@ model Lesson {
   id          String             @id @default(cuid())
   moduleId    String
   title       String
+  /// Jenis utama untuk label daftar materi; diturunkan dari blok saat disimpan.
   type        LessonType         @default(TEXT)
-  content     String             @default("")
-  resourceUrl String?
+  /// Isi pelajaran: deretan blok, lihat src/lib/lesson-blocks.ts.
+  blocks      Json               @default("[]")
   duration    Int                @default(15)
   position    Int
   required    Boolean            @default(true)
@@ -249,7 +251,6 @@ model TrainingBatch {
   venue             String?
   meetingUrl        String?
   capacity          Int                    @default(30)
-  passingGrade      Int?
   minimumAttendance Int                    @default(80)
   description       String                 @default("")
   notes             String                 @default("")
@@ -338,6 +339,8 @@ model Assessment {
   startsAt           DateTime?
   endsAt             DateTime?
   durationMinutes    Int                  @default(30)
+  /// Satu-satunya nilai kelulusan yang berlaku: menentukan status lulus
+  /// percobaan, progres peserta, dan syarat sertifikat (ujian akhir).
   passingGrade       Int                  @default(70)
   maxAttempts        Int                  @default(1)
   randomizeQuestions Boolean              @default(false)
@@ -369,11 +372,23 @@ model Question {
   deletedAt   DateTime?
   requiresReason Boolean              @default(false)
   parentId       String?
+  /// Urutan di antara soal sesaudara (courseId + parentId yang sama). Urutan
+  /// bank soal induk adalah acuan untuk setiap training dan setiap ujian.
+  position       Int                  @default(0)
+  /// Pada salinan training: soal induk yang disalin. Kosong untuk soal induk
+  /// dan untuk soal yang dibuat khusus di training.
+  sourceQuestionId String?
+  /// Salinan yang disunting atau diarsipkan di training tidak lagi ditimpa oleh
+  /// induknya. Urutannya tetap mengikuti induk.
+  detached       Boolean              @default(false)
   course      Course               @relation(fields: [courseId], references: [id])
   options     QuestionOption[]
   assessments AssessmentQuestion[]
   parent      Question?            @relation("CaseStudyQuestions", fields: [parentId], references: [id], onDelete: Restrict)
   children    Question[]           @relation("CaseStudyQuestions")
+
+  @@index([courseId, parentId, position])
+  @@index([sourceQuestionId])
 }
 
 model QuestionOption {

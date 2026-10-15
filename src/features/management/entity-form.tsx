@@ -7,7 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 
@@ -277,17 +277,21 @@ export function DeleteEntityButton({
   entity,
   id,
   title,
+  label = "Hapus permanen",
   description = "Semua data terkait akan dihapus selamanya. Tindakan ini tidak dapat dibatalkan.",
 }: {
   entity: "course" | "batch";
   id: string;
   title: string;
+  label?: string;
   description?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [pending, start] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
+  const inputId = useId();
 
   const confirmed = confirm.trim() === title.trim();
 
@@ -301,7 +305,7 @@ export function DeleteEntityButton({
         className="text-red-600 hover:text-red-700"
       >
         <Trash2 className="size-3.5" aria-hidden />
-        Hapus permanen
+        {label}
       </Button>
       <Dialog
         open={open}
@@ -325,7 +329,7 @@ export function DeleteEntityButton({
           </div>
           <div>
             <label
-              htmlFor="delete-confirm"
+              htmlFor={inputId}
               className="block text-sm text-ink-700"
             >
               Ketik{" "}
@@ -335,7 +339,7 @@ export function DeleteEntityButton({
               untuk mengonfirmasi:
             </label>
             <input
-              id="delete-confirm"
+              id={inputId}
               type="text"
               className="mt-2 block w-full rounded-md border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
               placeholder={title}
@@ -367,7 +371,10 @@ export function DeleteEntityButton({
                   else {
                     toast.success(result.success);
                     setOpen(false);
-                    if (result.redirectTo) router.push(result.redirectTo);
+                    // Dari halaman detail kembali ke daftar; dari daftar
+                    // cukup segarkan supaya filter dan halaman tetap.
+                    if (result.redirectTo && result.redirectTo !== pathname)
+                      router.push(result.redirectTo);
                     else router.refresh();
                   }
                 })

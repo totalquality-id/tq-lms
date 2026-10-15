@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { StatusBadge } from "@/components/ui/badge";
 import { EmptyState, Table, TableWrap, Td, Th } from "@/components/ui/table";
+import { DeleteEntityButton } from "@/features/management/entity-form";
 import type { trainingInclude } from "@/repositories/training";
 import { dateRange, labels } from "@/lib/utils";
 
@@ -16,12 +17,15 @@ export function TrainingTable({
   empty = "Belum ada training",
   emptyDescription = "Training yang dijadwalkan akan muncul di sini.",
   showOrganization = true,
+  deletable = false,
 }: {
   items: TrainingRow[];
   base?: string;
   empty?: string;
   emptyDescription?: string;
   showOrganization?: boolean;
+  /** Tampilkan tombol hapus permanen per baris (khusus admin). */
+  deletable?: boolean;
 }) {
   if (!items.length)
     return <EmptyState title={empty} description={emptyDescription} />;
@@ -37,6 +41,11 @@ export function TrainingTable({
             <Th>Trainer</Th>
             <Th className="text-right">Peserta</Th>
             <Th>Status</Th>
+            {deletable ? (
+              <Th>
+                <span className="sr-only">Tindakan</span>
+              </Th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -73,6 +82,17 @@ export function TrainingTable({
               <Td>
                 <StatusBadge value={item.status} />
               </Td>
+              {deletable ? (
+                <Td className="text-right">
+                  <DeleteEntityButton
+                    entity="batch"
+                    id={item.id}
+                    title={item.title}
+                    label="Hapus"
+                    description="Training beserta salinan course, penilaian, tugas, dan materinya akan dihapus permanen. Training yang sudah memiliki peserta tidak dapat dihapus — gunakan arsip."
+                  />
+                </Td>
+              ) : null}
             </tr>
           ))}
         </tbody>

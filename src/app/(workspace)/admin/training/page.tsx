@@ -48,7 +48,7 @@ export default async function TrainingListPage({
             },
           ]}
         />
-        <TrainingTable items={items} />
+        <TrainingTable items={items} deletable />
         <Pagination
           total={total}
           page={page}

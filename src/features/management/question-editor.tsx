@@ -24,6 +24,8 @@ export type EditableQuestion = {
   requiresReason: boolean;
   parentId: string | null;
   children?: EditableQuestion[];
+  /** Hanya di bank soal training: hubungan salinan dengan soal induknya. */
+  sync?: "follows" | "detached" | "local";
 };
 
 type Props = {
