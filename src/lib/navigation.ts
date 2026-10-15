@@ -74,6 +74,7 @@ export function navigationFor(role: UserRole): NavGroup[] {
             label: "Bank soal",
             icon: "question",
           },
+          { href: "/admin/reviews", label: "Penilaian", icon: "review" },
           {
             href: "/admin/evaluations",
             label: "Evaluasi",

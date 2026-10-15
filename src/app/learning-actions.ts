@@ -84,6 +84,7 @@ export async function submitAttemptAction(
       redirectTo: `/my-training/${batchId}/assessment/${assessmentId}`,
     };
   } catch (error) {
+    console.error("Submit error:", error);
     return failure(error);
   }
 }

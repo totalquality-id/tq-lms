@@ -90,6 +90,7 @@ export async function reviewSubmissionAction(
   try {
     await reviewSubmission(batchId, submissionId, entries(form));
     revalidatePath("/trainer/reviews");
+    revalidatePath("/admin/reviews");
     revalidatePath(`/trainer/training/${batchId}`, "layout");
     revalidatePath(`/admin/training/${batchId}`, "layout");
     return { success: "Penilaian tugas tersimpan." };
@@ -192,6 +193,7 @@ export async function reviewAnswerAction(
       String(form.get("feedback") ?? ""),
     );
     revalidatePath("/trainer/reviews");
+    revalidatePath("/admin/reviews");
     revalidatePath("/admin/training/[id]", "layout");
     revalidatePath("/trainer/training/[id]", "layout");
     return { success: "Nilai jawaban tersimpan." };
