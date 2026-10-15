@@ -316,11 +316,9 @@ export function batchFields(
     },
   ];
 }
+/** Pelajaran baru: judul dan durasi; isinya disusun di editor pelajaran. */
 export function lessonFields(data?: {
   title: string;
-  type: string;
-  content: string;
-  resourceUrl: string | null;
   duration: number;
 }): FieldSpec[] {
   return [
@@ -332,19 +330,6 @@ export function lessonFields(data?: {
       defaultValue: data?.title,
     },
     {
-      name: "type",
-      label: "Jenis materi",
-      options: enums([
-        "TEXT",
-        "PDF",
-        "VIDEO",
-        "IMAGE",
-        "FILE",
-        "EXTERNAL_LINK",
-      ]),
-      defaultValue: data?.type ?? "TEXT",
-    },
-    {
       name: "duration",
       label: "Durasi (menit)",
       type: "number",
@@ -352,21 +337,7 @@ export function lessonFields(data?: {
       defaultValue: data?.duration ?? 15,
       min: 1,
       max: 600,
-    },
-    {
-      name: "content",
-      label: "Isi artikel / deskripsi",
-      type: "textarea",
-      full: true,
-      defaultValue: data?.content,
-    },
-    {
-      name: "resourceUrl",
-      label: "Tautan materi",
-      type: "url",
-      full: true,
-      defaultValue: data?.resourceUrl ?? "",
-      help: "Tautan HTTPS ke PDF, video, gambar, atau berkas. Akses tautan mengikuti pengaturan penyedianya.",
+      help: "Setelah disimpan, Anda diarahkan ke editor untuk menambahkan teks, video, gambar, dan dokumen.",
     },
   ];
 }

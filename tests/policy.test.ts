@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { batchScope, canAssignRole, home } from "../src/lib/policy";
 import { batchSchema, lessonSchema, userSchema } from "../src/schemas/forms";
+import { blocksError } from "../src/lib/lesson-blocks";
 test("participant query must be scoped to active own enrollments", () => {
   assert.deepEqual(
     batchScope({ id: "p1", role: "PARTICIPANT", organizationIds: [] }),
@@ -71,22 +72,24 @@ test("training dates, capacity and online location are validated", () => {
 });
 test("lesson rejects unsafe URL schemes and empty articles", () => {
   assert.equal(
-    lessonSchema.safeParse({
-      title: "Sample lesson",
-      type: "TEXT",
-      content: "",
-      duration: 15,
-    }).success,
+    lessonSchema.safeParse({ title: "", duration: 15 }).success,
     false,
   );
-  assert.equal(
-    lessonSchema.safeParse({
-      title: "Sample lesson",
-      type: "EXTERNAL_LINK",
-      resourceUrl: "javascript:alert(1)",
-      duration: 15,
-    }).success,
-    false,
+  assert.notEqual(
+    blocksError([{ id: "a", type: "text", html: "" }]),
+    null,
+  );
+  assert.notEqual(
+    blocksError([
+      {
+        id: "b",
+        type: "link",
+        url: "javascript:alert(1)",
+        title: "",
+        description: "",
+      },
+    ]),
+    null,
   );
 });
 test("PIC must have an organization", () => {

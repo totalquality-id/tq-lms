@@ -15,6 +15,7 @@ import { CourseCurriculum } from "@/features/management/course-curriculum";
 import { PreviewDialog } from "@/features/management/preview-dialog";
 import { LessonContent } from "@/features/learning/lesson-content";
 import { db } from "@/lib/db";
+import { readBlocks } from "@/lib/lesson-blocks";
 import { dateRange, labels, minutes } from "@/lib/utils";
 import { batchOverview } from "@/services/batch";
 
@@ -238,7 +239,10 @@ export async function ManageOverview({ id }: { id: string }) {
                               {labels[lesson.type] ?? lesson.type} ·{" "}
                               {minutes(lesson.duration)}
                             </p>
-                            <LessonContent lesson={lesson} />
+                            <LessonContent
+                              lessonId={lesson.id}
+                              blocks={readBlocks(lesson.blocks)}
+                            />
                           </div>
                         </PreviewDialog>
                       </li>

@@ -223,9 +223,10 @@ model Lesson {
   id          String             @id @default(cuid())
   moduleId    String
   title       String
+  /// Jenis utama untuk label daftar materi; diturunkan dari blok saat disimpan.
   type        LessonType         @default(TEXT)
-  content     String             @default("")
-  resourceUrl String?
+  /// Isi pelajaran: deretan blok, lihat src/lib/lesson-blocks.ts.
+  blocks      Json               @default("[]")
   duration    Int                @default(15)
   position    Int
   required    Boolean            @default(true)

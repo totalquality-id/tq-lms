@@ -16,6 +16,7 @@ import {
   type ArchiveCategory,
 } from "@/services/archive";
 import type { FormState } from "@/schemas/forms";
+import { saveLesson, type LessonInput } from "@/services/lesson";
 import { currentUser } from "@/services/access";
 import { db } from "@/lib/db";
 export async function saveAction(
@@ -40,7 +41,9 @@ export async function saveAction(
           ? `/admin/courses/${savedId}`
           : !id && entity === "batch"
             ? `/admin/training/${savedId}`
-            : undefined,
+            : !id && entity === "lesson"
+              ? `/admin/lessons/${savedId}`
+              : undefined,
     };
   } catch (e) {
     return failure(e);
@@ -74,6 +77,18 @@ export async function deleteEntityAction(
             ? "/admin/training"
             : undefined,
     };
+  } catch (e) {
+    return failure(e);
+  }
+}
+export async function saveLessonAction(
+  lessonId: string,
+  input: LessonInput,
+): Promise<FormState> {
+  try {
+    await saveLesson(lessonId, input);
+    revalidatePath("/", "layout");
+    return { success: "Pelajaran berhasil disimpan." };
   } catch (e) {
     return failure(e);
   }

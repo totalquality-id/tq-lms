@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { resourceDownload, submissionDownload } from "@/services/file";
+import {
+  lessonFile,
+  resourceDownload,
+  submissionDownload,
+} from "@/services/file";
 
 /**
  * Pengalihan ke tautan unduhan bertanda tangan.
@@ -15,17 +19,24 @@ import { resourceDownload, submissionDownload } from "@/services/file";
  * pada setiap permintaan, bukan hanya pada yang pertama.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ kind: string; id: string }> },
 ) {
   const { kind, id } = await context.params;
+  const search = new URL(request.url).searchParams;
 
   const url =
     kind === "resource"
       ? await resourceDownload(id)
       : kind === "submission"
         ? await submissionDownload(id)
-        : null;
+        : kind === "lesson"
+          ? await lessonFile(
+              id,
+              search.get("key") ?? "",
+              search.get("download") === "1",
+            )
+          : null;
 
   if (!url)
     return new NextResponse("Berkas tidak ditemukan atau bukan hak Anda.", {

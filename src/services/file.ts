@@ -4,6 +4,14 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import {
+  LESSON_LIMITS,
+  LESSON_PREFIX,
+  LESSON_TYPES,
+  blockFiles,
+  readBlocks,
+  type UploadKind,
+} from "@/lib/lesson-blocks";
 import { batchScope, isAdmin } from "@/lib/policy";
 import {
   RESOURCE_MAX_BYTES,
@@ -16,10 +24,11 @@ import {
   objectInfo,
   removeObject,
   signDownload,
+  signInline,
   signUpload,
   storageConfigured,
 } from "@/lib/supabase-storage";
-import { currentUser, requireBatchStaff } from "./access";
+import { currentUser, requireAdmin, requireBatchStaff } from "./access";
 import { myEnrollment } from "./learning";
 
 export { storageConfigured };
@@ -84,6 +93,32 @@ export async function signSubmissionUpload(
   return signUpload(
     storageKey(
       ["batch", batchId, "assignment", assignmentId, enrollment.id],
+      randomUUID(),
+      meta.name,
+    ),
+  );
+}
+
+/**
+ * Tautan unggah berkas pelajaran (video, gambar, dokumen), khusus
+ * administrator yang menyusun kurikulum. Kuncinya berada di bawah course
+ * pemilik pelajaran; salinan course pada training merujuk kunci yang sama.
+ */
+export async function signLessonUpload(
+  lessonId: string,
+  kind: UploadKind,
+  input: UploadMeta,
+) {
+  await requireAdmin();
+  const lesson = await db.lesson.findFirstOrThrow({
+    where: { id: lessonId, module: { course: { deletedAt: null } } },
+    select: { module: { select: { courseId: true } } },
+  });
+  const meta = metaSchema.parse(input);
+  guard(meta.name, meta.size, LESSON_LIMITS[kind], [...LESSON_TYPES[kind]]);
+  return signUpload(
+    storageKey(
+      [LESSON_PREFIX.slice(0, -1), lesson.module.courseId],
       randomUUID(),
       meta.name,
     ),
@@ -174,6 +209,37 @@ export async function submissionDownload(id: string) {
   });
   if (!submission?.storageKey) return null;
   return signDownload(submission.storageKey, fileNameOf(submission.storageKey));
+}
+
+/**
+ * Tautan berkas pelajaran. Administrator dapat membuka berkas pelajaran mana
+ * pun — termasuk unggahan yang belum disimpan, untuk pratinjau editor. Selain
+ * itu, berkasnya harus memang dirujuk pelajaran ini, dan pembacanya berhak
+ * atas salah satu training yang memakai course tersebut.
+ */
+export async function lessonFile(
+  lessonId: string,
+  key: string,
+  download: boolean,
+) {
+  if (!key.startsWith(LESSON_PREFIX) || key.includes("..")) return null;
+  const user = await currentUser();
+  const lesson = await db.lesson.findFirst({
+    where: {
+      id: lessonId,
+      ...(isAdmin(user.role)
+        ? {}
+        : { module: { course: { batches: { some: batchScope(user) } } } }),
+    },
+    select: { blocks: true },
+  });
+  if (!lesson) return null;
+  const file = blockFiles(readBlocks(lesson.blocks)).find(
+    (item) => item.key === key,
+  );
+  if (!file && !isAdmin(user.role)) return null;
+  const name = file?.name ?? fileNameOf(key);
+  return download ? signDownload(key, name) : signInline(key);
 }
 
 /** Ekstensi yang diterima, untuk atribut `accept` pada pemilih berkas. */

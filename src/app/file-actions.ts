@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { failure } from "@/lib/action-result";
 import type { FormState } from "@/schemas/forms";
+import type { UploadKind } from "@/lib/lesson-blocks";
 import {
+  signLessonUpload,
   signResourceUpload,
   signSubmissionUpload,
   type UploadMeta,
@@ -44,6 +46,18 @@ export async function signSubmissionUploadAction(
 ): Promise<SignedUploadState> {
   try {
     return { upload: await signSubmissionUpload(batchId, assignmentId, meta) };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function signLessonUploadAction(
+  lessonId: string,
+  kind: UploadKind,
+  meta: UploadMeta,
+): Promise<SignedUploadState> {
+  try {
+    return { upload: await signLessonUpload(lessonId, kind, meta) };
   } catch (error) {
     return failure(error);
   }
