@@ -10,3 +10,6 @@ test-results/
 .vercel
 .vercel
 .vercel-token
+
+# Cadangan data lokal (mis. dump sebelum migrasi); jangan di-commit.
+backups/
